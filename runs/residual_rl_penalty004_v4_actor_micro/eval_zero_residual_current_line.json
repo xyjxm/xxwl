@@ -1,0 +1,80 @@
+{
+  "original_baseline": {
+    "name": "original_baseline_from_plan",
+    "source": "plan_rl.md",
+    "scenario": 3,
+    "raw_time_seconds": 25.36,
+    "penalty_time_seconds": 3.0,
+    "final_time_seconds": 28.36,
+    "mean_raw_time_seconds": 25.36,
+    "mean_penalty_time_seconds": 3.0,
+    "mean_final_time_seconds": 28.36,
+    "compatible_with_current_residual_env": true
+  },
+  "strongest_available_baseline": {
+    "name": "user_confirmed_strongest_baseline_20260614",
+    "source": "user message: raw=25.36s penalty=3.00s final=28.36s",
+    "scenario": 3,
+    "raw_time_seconds": 25.36,
+    "penalty_time_seconds": 3.0,
+    "final_time_seconds": 28.36,
+    "mean_raw_time_seconds": 25.36,
+    "mean_penalty_time_seconds": 3.0,
+    "mean_final_time_seconds": 28.36,
+    "compatible_with_current_residual_env": true
+  },
+  "episodes": [
+    {
+      "episode": 1,
+      "finished": true,
+      "truncated": false,
+      "raw_time": 27.684956073760986,
+      "penalty_time": 28.0,
+      "final_time": 55.684956073760986,
+      "total_reward": -917.398122559823,
+      "collision_count": 1,
+      "red_light_violation_count": 0,
+      "reward_threshold_0p04_violation_ratio": 0.0752,
+      "last_segment_name": "final_straight",
+      "elapsed_time": 27.684956073760986,
+      "step_count": 625,
+      "position": [
+        -1.9435373544692993,
+        0.391051709651947
+      ],
+      "yaw": -1.518728494644165,
+      "speed": 0.68,
+      "invalid_reason": null,
+      "stall_steps": 0
+    }
+  ],
+  "mean_raw_time": 27.684956073760986,
+  "std_raw_time": 0.0,
+  "mean_penalty_time": 28.0,
+  "std_penalty_time": 0.0,
+  "mean_final_time": 55.684956073760986,
+  "std_final_time": 0.0,
+  "best_final_time": 55.684956073760986,
+  "beat_original_baseline_rate": 0.0,
+  "beat_strongest_baseline_rate": 0.0,
+  "finish_success_rate": 1.0,
+  "invalid_episode_count": 0,
+  "collision_count": 1,
+  "red_light_violation_count": 0,
+  "reward_threshold_0p04_violation_ratio": 0.0752,
+  "hard_pass": false,
+  "soft_pass": false,
+  "scenario": 3,
+  "model": "zero",
+  "base_policy": "strongest",
+  "deterministic": true,
+  "reward_minor_threshold": 0.04,
+  "zero_residual_check": {
+    "target_final_time": 28.36,
+    "target_penalty_time": 3.0,
+    "mean_final_time_abs_diff": 27.324956073760987,
+    "mean_penalty_time_abs_diff": 25.0,
+    "tolerance_seconds": 0.75,
+    "matches_strongest_baseline": false
+  }
+}

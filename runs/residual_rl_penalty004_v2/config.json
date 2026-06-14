@@ -1,0 +1,22 @@
+{
+  "algorithm": "SAC",
+  "n_envs": 1,
+  "scenario": 3,
+  "total_steps": 8000,
+  "seed": 1,
+  "base_policy": "strongest",
+  "reward_minor_threshold": 0.04,
+  "auto_reenter_plane": true,
+  "strongest_baseline": {
+    "name": "user_confirmed_strongest_baseline_20260614",
+    "source": "user message: raw=25.36s penalty=3.00s final=28.36s",
+    "scenario": 3,
+    "raw_time_seconds": 25.36,
+    "penalty_time_seconds": 3.0,
+    "final_time_seconds": 28.36,
+    "mean_raw_time_seconds": 25.36,
+    "mean_penalty_time_seconds": 3.0,
+    "mean_final_time_seconds": 28.36,
+    "compatible_with_current_residual_env": true
+  }
+}

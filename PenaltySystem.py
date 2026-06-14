@@ -25,7 +25,7 @@ class PenaltySystem:
         
         # === 车道偏离罚时参数 ===
         # 参考强化学习代码中的阈值设置
-        self.MINOR_DEVIATION_THRESHOLD = 0.08      # 轻微出界阈值：0.08m
+        self.MINOR_DEVIATION_THRESHOLD = 0.04      # 轻微出界阈值：0.04m
         self.LEFT_MAJOR_DEVIATION_THRESHOLD = 0.12  # 左侧中等出界阈值：0.12m
         self.LEFT_TERMINAL_THRESHOLD = 0.18         # 左侧严重出界阈值：0.18m
         self.RIGHT_MAJOR_DEVIATION_THRESHOLD = 0.12 # 右侧中等出界阈值：0.12m

@@ -128,6 +128,16 @@ class AutonomousDriveCore:
         self.det_stoplane = 0
         self.det_trafficcone_time = 0
         self.referee_monitoring_active = False
+        self.action_adapter = None
+        self.single_tick_mode = False
+        self.last_action_record = {
+            "base_action": {"forward": 0.0, "turn": 0.0},
+            "residual_action": {"speed_delta": 0.0, "steering_bias": 0.0},
+            "final_action": {"forward": 0.0, "turn": 0.0},
+            "segment_id": 0,
+            "segment_name": "uninitialized",
+            "residual_enabled": False,
+        }
         
         # 场景控制开关
         self.ENABLE_CONE_AVOIDANCE = (scenario_num == 3)
@@ -308,7 +318,12 @@ class AutonomousDriveCore:
 
     def setup_competition_scene(self):
         if not self.wait_for_qlab_actor_spawner():
-            raise RuntimeError("QLAB actor spawner is not responding; cannot rebuild Plane actors without a working QLAB scene.")
+            if os.environ.get("QLAB_ALLOW_DIRECT_SETUP_ON_HEALTH_FAIL", "0") != "1":
+                raise RuntimeError("QLAB actor spawner is not responding; cannot rebuild Plane actors without a working QLAB scene.")
+            print(
+                "QLAB actor spawner health check failed; attempting direct setup. "
+                "The caller must verify QCar movement before accepting this episode."
+            )
         self.qlabs = None
         self.car = setup(scenario_num=self.scenario_num)
         self.qlabs = getattr(self.car, "_qlabs", None)
@@ -571,6 +586,9 @@ class AutonomousDriveCore:
         """
         基于前瞻距离在路径上找到目标点
         """
+        if self.scenario_num == 3 and os.environ.get("SCENARIO3_ARCLENGTH_TARGET", "0") == "1":
+            return self._find_target_point_by_arclength(current_position)
+
         nearest_point_index = self.find_nearest_point_index(current_position)
 
         # Look ahead on path to find target point
@@ -581,6 +599,57 @@ class AutonomousDriveCore:
         
         # If no point found, return second point
         return (self.path_points[2], distance)
+
+    def _find_target_point_by_arclength(self, current_position):
+        """Find a smoother scenario-3 lookahead target by projecting onto path segments."""
+        points = self.path_points
+        car_pos = np.array(current_position, dtype=float)
+        if points is None or len(points) < 2:
+            return (car_pos, 0.0)
+
+        best_idx = 0
+        best_t = 0.0
+        best_dist = float("inf")
+        segment_count = len(points)
+
+        for idx in range(segment_count):
+            p1 = points[idx]
+            p2 = points[(idx + 1) % segment_count]
+            segment = p2 - p1
+            length_sq = float(np.dot(segment, segment))
+            if length_sq < 1e-9:
+                continue
+            t = float(np.clip(np.dot(car_pos - p1, segment) / length_sq, 0.0, 1.0))
+            projection = p1 + t * segment
+            dist = float(np.linalg.norm(car_pos - projection))
+            if dist < best_dist:
+                best_dist = dist
+                best_idx = idx
+                best_t = t
+
+        remaining = float(self.ld)
+        idx = best_idx
+        t = best_t
+        for _ in range(segment_count + 1):
+            p1 = points[idx]
+            p2 = points[(idx + 1) % segment_count]
+            segment = p2 - p1
+            seg_len = float(np.linalg.norm(segment))
+            if seg_len < 1e-9:
+                idx = (idx + 1) % segment_count
+                t = 0.0
+                continue
+            available = seg_len * (1.0 - t)
+            if remaining <= available:
+                target_t = t + remaining / seg_len
+                target = p1 + target_t * segment
+                return (target, float(np.linalg.norm(target - car_pos)))
+            remaining -= available
+            idx = (idx + 1) % segment_count
+            t = 0.0
+
+        fallback = points[(best_idx + 1) % segment_count]
+        return (fallback, float(np.linalg.norm(fallback - car_pos)))
 
     def calculate_steering_angle(self, current_position, target_point, yaw):
         """
@@ -661,6 +730,12 @@ class AutonomousDriveCore:
         # Apply avoidance steering adjustment if needed
         if avoidance and self.ENABLE_CONE_AVOIDANCE:
             steering_angle -= self.avoid_angle
+
+        speed, steering_angle = self.apply_action_adapter(
+            speed,
+            steering_angle,
+            context="pure_pursuit",
+        )
         
         # Update car state and get new position
         status, veh_posi, orien, _, _ = self.car.set_velocity_and_request_state(
@@ -676,6 +751,36 @@ class AutonomousDriveCore:
         current_position = np.array([veh_posi[0], veh_posi[1]])
 
         return current_position, yaw, speed
+
+    def apply_action_adapter(self, forward, turn, context="drive"):
+        base_action = {"forward": float(forward), "turn": float(turn)}
+        if self.action_adapter is None:
+            self.last_action_record = {
+                "base_action": base_action.copy(),
+                "residual_action": {"speed_delta": 0.0, "steering_bias": 0.0},
+                "final_action": base_action.copy(),
+                "segment_id": 0,
+                "segment_name": context,
+                "residual_enabled": False,
+            }
+            return forward, turn
+
+        final_forward, final_turn, record = self.action_adapter(
+            forward=float(forward),
+            turn=float(turn),
+            context=context,
+            core=self,
+        )
+        if record is None:
+            record = {}
+        record.setdefault("base_action", base_action.copy())
+        record.setdefault("residual_action", {"speed_delta": 0.0, "steering_bias": 0.0})
+        record.setdefault("final_action", {"forward": float(final_forward), "turn": float(final_turn)})
+        record.setdefault("segment_id", 0)
+        record.setdefault("segment_name", context)
+        record.setdefault("residual_enabled", False)
+        self.last_action_record = record
+        return float(final_forward), float(final_turn)
 
     def get_front_lidar(self):
         """

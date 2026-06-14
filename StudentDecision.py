@@ -20,7 +20,8 @@ class StudentDecision:
         self.cow_cooldown = 2.0
         self.stop_sign_hold_seconds = float(os.environ.get("STOP_SIGN_HOLD_SECONDS", "0.0"))
         self.people_hold_seconds = float(os.environ.get("PEOPLE_HOLD_SECONDS", "1.0"))
-        self.cow_hold_seconds = float(os.environ.get("COW_HOLD_SECONDS", "3.30"))
+        self.cow_hold_seconds = float(os.environ.get("COW_HOLD_SECONDS", "0.00"))
+        self.cow_clearance_hold_seconds = float(os.environ.get("COW_CLEARANCE_HOLD_SECONDS", "5.00"))
         self.upper_people_hold_seconds = float(os.environ.get("UPPER_PEOPLE_HOLD_SECONDS", "2.20"))
         self.lower_people_hold_seconds = float(os.environ.get("LOWER_PEOPLE_HOLD_SECONDS", "0.00"))
         self.lower_people_pass_enabled = os.environ.get("LOWER_PEOPLE_PASS_ENABLED", "0") == "1"
@@ -44,6 +45,8 @@ class StudentDecision:
         self.upper_people_position_yield_done = False
         self.lower_people_position_yield_done = False
         self.cow_position_yield_done = False
+        self.cow_clearance_yield_done = False
+        self.single_tick_hold_until = 0.0
 
         self.last_cone_avoidance_time = 0.0
         self.cone_cooldown = 4.0
@@ -173,10 +176,22 @@ class StudentDecision:
         self.scenario3_cruise_start_y = float(os.environ.get("SCENARIO3_CRUISE_START_Y", "1.65"))
         self.scenario3_final_speed_limit = float(os.environ.get("SCENARIO3_FINAL_SPEED_LIMIT", "0.75"))
         self.scenario3_final_slow_x = float(os.environ.get("SCENARIO3_FINAL_SLOW_X", "-1.25"))
+        self.scenario3_strict_lane_speed_cap = float(os.environ.get("SCENARIO3_STRICT_LANE_SPEED_CAP", "99.0"))
+        self.lower_corner_target_y = float(os.environ.get("LOWER_CORNER_TARGET_Y", "-1.136"))
+        self.lower_corner_speed_cap = float(os.environ.get("LOWER_CORNER_SPEED_CAP", "0.42"))
+        self.lower_corner_forward_x = float(os.environ.get("LOWER_CORNER_FORWARD_X", "0.58"))
+        self.cow_entry_split_x = float(os.environ.get("COW_ENTRY_SPLIT_X", "0.05"))
+        self.cow_entry_target_y = float(os.environ.get("COW_ENTRY_TARGET_Y", "4.500"))
+        self.cow_clearance_target_y = float(os.environ.get("COW_CLEARANCE_TARGET_Y", "4.500"))
+        self.cow_entry_x_offset = float(os.environ.get("COW_ENTRY_X_OFFSET", "0.45"))
+        self.cow_clearance_x_offset = float(os.environ.get("COW_CLEARANCE_X_OFFSET", "0.45"))
 
         # Scenario 3 keeps enough early speed for dynamic actors, then slows later.
         if self.core.scenario_num == 3:
-            self.core.ld = max(self.core.ld, 0.52)
+            if "SCENARIO3_LD" in os.environ:
+                self.core.ld = float(os.environ["SCENARIO3_LD"])
+            else:
+                self.core.ld = max(self.core.ld, 0.52)
             scenario3_fast_speed = float(os.environ.get("SCENARIO3_FAST_SPEED", "2.08"))
             scenario3_min_speed = float(os.environ.get("SCENARIO3_MIN_SPEED", "0.20"))
             self.core.max_speed = max(self.core.max_speed, scenario3_fast_speed)
@@ -206,11 +221,26 @@ class StudentDecision:
         return self.core.current_position, self.core.yaw, self.core.speed
 
     def _hold_stop(self, seconds):
+        if getattr(self.core, "single_tick_mode", False):
+            self.single_tick_hold_until = max(
+                self.single_tick_hold_until,
+                time.time() + float(seconds),
+            )
+            return self._stop_vehicle_once(brake=True)
+
         end_time = time.time() + seconds
         while time.time() < end_time:
             self._stop_vehicle_once(brake=True)
             time.sleep(0.05)
         return self.core.current_position, self.core.yaw, self.core.speed
+
+    def _service_single_tick_hold(self):
+        if not getattr(self.core, "single_tick_mode", False):
+            return False
+        if time.time() >= self.single_tick_hold_until:
+            return False
+        self._stop_vehicle_once(brake=True)
+        return True
 
     def _drive(self, avoidance=None, speed_cap=None):
         if avoidance is not None:
@@ -276,27 +306,44 @@ class StudentDecision:
             ):
                 target_point = np.array([self.lower_curve_target_x, pos[1] + self.lower_curve_forward_y])
                 self.core.max_speed = min(self.core.max_speed, self.lower_curve_speed)
-            elif self.lower_overrides_enabled and -1.12 <= pos[0] <= -0.74 and -1.08 <= pos[1] <= -0.86:
-                target_point = np.array([pos[0] + 0.55, -1.105])
-                self.core.max_speed = min(self.core.max_speed, 0.54)
+            elif -1.12 <= pos[0] <= -0.74 and -1.08 <= pos[1] <= -0.86:
+                target_point = np.array([pos[0] + self.lower_corner_forward_x, self.lower_corner_target_y])
+                self.core.max_speed = min(self.core.max_speed, self.lower_corner_speed_cap)
             elif 2.08 <= pos[0] <= 2.34 and -1.00 <= pos[1] < -0.35:
-                target_point = np.array([2.10, pos[1] + 0.38])
-                self.core.max_speed = min(self.core.max_speed, 0.72)
-            elif 2.02 <= pos[0] <= 2.26 and -0.35 <= pos[1] <= 0.08:
-                target_point = np.array([2.20, pos[1] + 0.42])
+                target_point = np.array([2.200, pos[1] + 0.40])
                 self.core.max_speed = min(self.core.max_speed, 0.66)
+            elif 2.02 <= pos[0] <= 2.26 and -0.35 <= pos[1] <= 0.08:
+                target_point = np.array([2.225, pos[1] + 0.42])
+                self.core.max_speed = min(self.core.max_speed, 0.64)
             elif 1.85 <= pos[0] <= 2.36 and 2.85 <= pos[1] <= 3.45:
                 self.core.max_speed = min(self.core.max_speed, 1.45)
+            elif 2.14 <= pos[0] <= 2.22 and 3.66 <= pos[1] < 3.82:
+                target_point = np.array([2.235, pos[1] + 0.34])
+                self.core.max_speed = min(self.core.max_speed, 0.62)
+            elif -0.10 <= pos[0] <= 0.60 and 4.30 <= pos[1] <= 4.58:
+                cow_target_y = (
+                    self.cow_entry_target_y
+                    if pos[0] >= self.cow_entry_split_x
+                    else self.cow_clearance_target_y
+                )
+                cow_x_offset = (
+                    self.cow_entry_x_offset
+                    if pos[0] >= self.cow_entry_split_x
+                    else self.cow_clearance_x_offset
+                )
+                target_point = np.array([pos[0] - cow_x_offset, cow_target_y])
+                self.core.max_speed = min(self.core.max_speed, 0.72)
             elif -0.18 <= pos[0] <= 0.85 and 4.30 <= pos[1] <= 4.55:
-                target_point = np.array([pos[0] - 0.55, 4.500])
+                target_point = np.array([pos[0] - 0.55, 4.420])
                 self.core.max_speed = min(self.core.max_speed, 1.14)
             elif -0.48 <= pos[0] < -0.18 and 4.30 <= pos[1] <= 4.55:
-                target_point = np.array([pos[0] - 0.60, 4.47])
+                target_point = np.array([pos[0] - 0.60, 4.420])
                 self.core.max_speed = min(self.core.max_speed, 0.92)
             elif -2.10 <= pos[0] <= -1.65 and 3.45 <= pos[1] <= 4.35:
                 self.core.max_speed = min(self.core.max_speed, 1.08)
             elif 1.00 <= pos[0] <= 2.28 and 3.45 <= pos[1] <= 4.52:
                 self.core.max_speed = min(self.core.max_speed, 1.45)
+            self.core.max_speed = min(self.core.max_speed, self.scenario3_strict_lane_speed_cap)
 
         steering_angle, _, _, _ = self.core.calculate_steering_angle(
             self.core.current_position,
@@ -339,6 +386,11 @@ class StudentDecision:
         return self._drive_raw(forward, steering_angle)
 
     def _drive_raw(self, forward, turn):
+        forward, turn = self.core.apply_action_adapter(
+            forward,
+            turn,
+            context="raw_drive",
+        )
         status, veh_posi, orien, _, _ = self.core.car.set_velocity_and_request_state(
             forward=forward,
             turn=turn,
@@ -357,6 +409,9 @@ class StudentDecision:
 
     def _run_red_light_finish_burst(self):
         """Finish the final straight in one decision call after red is detected."""
+        if getattr(self.core, "single_tick_mode", False):
+            return self._drive(speed_cap=min(self.core.max_speed, 1.10))
+
         deadline = time.time() + 1.8
         while time.time() < deadline:
             pos = self.core.current_position
@@ -367,6 +422,9 @@ class StudentDecision:
         return self.core.current_position, self.core.yaw, self.core.speed
 
     def _run_fast_finish_after_cone(self):
+        if getattr(self.core, "single_tick_mode", False):
+            return self._drive()
+
         print("[EXPERIMENT] Fast finish: batching post-cone lane following.")
         start_time = time.time()
         deadline = time.time() + 22.0
@@ -597,9 +655,9 @@ class StudentDecision:
             return self._drive_raw(self.cone_left_burst_forward, self.cone_left_burst_turn)
         if 0.30 <= y < 0.52:
             return self._drive_to_point_fast([2.205, y + 0.42], 1.38)
-        if 0.52 <= y < 0.82:
+        if 0.52 <= y < 0.74:
             return self._drive_to_point_fast([self.cone_setup_x, y + 0.40], self.cone_setup_forward)
-        if 0.82 <= y < 0.98:
+        if 0.74 <= y < 0.98:
             return self._drive_to_point_fast([self.cone_pre_x, y + 0.34], self.cone_pre_forward)
         if 0.98 <= y < self.cone_recover_start_y:
             return self._drive_to_point_fast([self.cone_lower_x, y + 0.32], self.cone_lower_forward)
@@ -678,20 +736,20 @@ class StudentDecision:
         if self.cone_raw_start_y <= y < 1.35 and x < self.cone_raw_guard_x:
             return self._drive_raw(self.cone_raw_forward, self.cone_raw_turn)
         if 1.23 <= y < 1.40:
-            return self._drive_to_point_fast([2.240, y + 0.42], 0.86)
+            return self._drive_to_point_fast([2.220, y + 0.42], 0.78)
         if 1.40 <= y < 1.52:
-            return self._drive_to_point_fast([2.260, y + 0.38], 1.05)
+            return self._drive_to_point_fast([2.220, y + 0.38], 0.78)
         if 1.44 <= y < 1.90 and x < 2.13:
             return self._drive_to_point_fast([2.760, y + 0.44], 1.35)
         if 1.50 <= y < 1.82:
-            return self._drive_to_point([2.215, y + 0.42], 1.20)
+            return self._drive_to_point([2.195, y + 0.42], 0.82)
 
         if y < -0.35:
-            target_point = [2.130, y + 0.44]
+            target_point = [2.175, y + 0.44]
             speed_cap = 0.70
         elif y < 0.15:
-            target_point = [2.125, y + 0.38]
-            speed_cap = 0.60
+            target_point = [2.175, y + 0.38]
+            speed_cap = 0.62
         elif y < 0.46:
             target_point = [2.205, y + 0.34]
             speed_cap = 0.74
@@ -788,6 +846,9 @@ class StudentDecision:
     def _run_sampling_bypass_experiment(self, det_result):
         if not self.sampling_bypass_experiment:
             return self.core.current_position, self.core.yaw, self.core.speed
+        if getattr(self.core, "single_tick_mode", False):
+            return self._drive()
+
         self.sampling_bypass_done = True
         start_time = time.time()
         print(
@@ -1156,6 +1217,9 @@ class StudentDecision:
 
     def _sprint_through_cone_gap(self):
         """Cross the cone gap in one control burst, then return inside the lane."""
+        if getattr(self.core, "single_tick_mode", False):
+            return self._drive(speed_cap=0.36)
+
         self.cone_sprint_done = True
         self.core.avoidance = False
         original_min_speed = self.core.min_speed
@@ -1299,6 +1363,17 @@ class StudentDecision:
             return "cow", "Cow: position guard yielding.", self.cow_hold_seconds
 
         if (
+            not self.cow_clearance_yield_done
+            and 0.42 <= x <= 0.56
+            and 4.30 <= y <= 4.55
+        ):
+            return (
+                "cow_clearance",
+                "Cow: clearance guard yielding.",
+                self.cow_clearance_hold_seconds,
+            )
+
+        if (
             not self.upper_people_position_yield_done
             and -2.05 <= x <= -1.62
             and 3.35 <= y <= 4.15
@@ -1339,6 +1414,9 @@ class StudentDecision:
 
         if guard_name == "cow":
             self.cow_position_yield_done = True
+            self.last_cow_stop_time = time.time()
+        elif guard_name == "cow_clearance":
+            self.cow_clearance_yield_done = True
             self.last_cow_stop_time = time.time()
         elif guard_name == "upper_people":
             self.upper_people_position_yield_done = True

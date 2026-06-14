@@ -1,43 +1,38 @@
+# Python/runtime caches
 __pycache__/
 *.py[cod]
-.ultralytics/
 .pytest_cache/
 .mypy_cache/
 
-# Local Quanser / course runtime directories are intentionally excluded.
-/quanser/
-/python/
-/qcar_test/
-/rtmodels/
+# Local Quanser/QLAB runtimes and large generated assets
+python/
+quanser/
+rtmodels/
+.ultralytics/
+qlabspretrained.pt
+*.rar
+*.7z
+*.zip
+*.pt
 
-# Runtime noise from local experiments.
-/scenario3*.log
-/scenario3*.err.log
-/scenario3*.pid
-/traffic_process*.log
-/traffic_process*.err.log
-/tmp_*.log
+# Local run noise
 *.pid
-/*.pid
-/*.flag
+*.log
+*.err
+traffic_ready.flag
+traffic_status.txt
+traffic_process.log
+traffic_process.err.log
+penalty_messages.txt
+cone_trace.csv
+qlab_*.png
+screen_*.png
 
-# Screenshots and large visual debugging captures.
-/qlab_*.png
-/screen_*.png
-/*.jpg
-/*.jpeg
-/*.bmp
+# Training byproducts not explicitly curated under runs/
+replay_buffer.pkl
+*.tmp
 
-# Large model/export formats. The small required YOLO model is allowed.
-*.pth
-*.onnx
-*.engine
-*.tflite
-*.pb
-!qlabspretrained.pt
-
-# Local editor and OS files.
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
+# Keep the curated residual report artifacts committed.
+!runs/residual_rl_penalty004_v2/config.json
+!runs/residual_rl_penalty004_v4_actor_micro/*.json
+!runs/residual_rl_penalty004_v4_actor_micro/*.csv
