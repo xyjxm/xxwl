@@ -1,0 +1,43 @@
+__pycache__/
+*.py[cod]
+.ultralytics/
+.pytest_cache/
+.mypy_cache/
+
+# Local Quanser / course runtime directories are intentionally excluded.
+/quanser/
+/python/
+/qcar_test/
+/rtmodels/
+
+# Runtime noise from local experiments.
+/scenario3*.log
+/scenario3*.err.log
+/scenario3*.pid
+/traffic_process*.log
+/traffic_process*.err.log
+/tmp_*.log
+*.pid
+/*.pid
+/*.flag
+
+# Screenshots and large visual debugging captures.
+/qlab_*.png
+/screen_*.png
+/*.jpg
+/*.jpeg
+/*.bmp
+
+# Large model/export formats. The small required YOLO model is allowed.
+*.pth
+*.onnx
+*.engine
+*.tflite
+*.pb
+!qlabspretrained.pt
+
+# Local editor and OS files.
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,7 @@
+[2026-06-14 01:27:27] Traffic script started; scenario=3
+[2026-06-14 01:27:27] Traffic config: actors=triggered, lights=fixed_green, delays=(0.00,0.00,0.00)
+[2026-06-14 01:27:27] Traffic Control connected to QLabs
+[2026-06-14 01:27:30] person1: attempt=1 spawn_status=0 actor=0 transform_ok=True location=-2.200,3.172,0.125
+[2026-06-14 01:27:30] person2: attempt=1 spawn_status=0 actor=1 transform_ok=True location=1.100,-0.560,0.125
+[2026-06-14 01:27:30] cow1: attempt=1 spawn_status=0 actor=0 transform_ok=True location=-0.159,4.600,0.109
+[2026-06-14 01:27:30] READY: required actors loaded; people=2 cow=1

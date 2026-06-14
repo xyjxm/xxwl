@@ -1,0 +1,7 @@
+t=3.02, loop=79, pos=(2.146,0.009), yaw=1.612, speed=0.600, penalty=0.0
+t=6.06, loop=170, pos=(2.216,2.639), yaw=1.592, speed=0.680, penalty=3.0
+t=9.06, loop=260, pos=(1.556,4.356), yaw=2.903, speed=0.680, penalty=3.0
+t=13.89, loop=288, pos=(0.586,4.430), yaw=3.047, speed=0.000, penalty=3.0
+t=16.89, loop=342, pos=(-1.403,4.305), yaw=-2.684, speed=0.680, penalty=3.0
+t=19.99, loop=356, pos=(-1.771,3.980), yaw=-2.117, speed=0.680, penalty=3.0
+t=23.00, loop=422, pos=(-1.950,1.894), yaw=-1.570, speed=0.680, penalty=3.0

@@ -1,0 +1,17 @@
+PenaltySystem initialized for scenario 3|0.0
+Cone positions: [(2.23, 1.17)]|0.0
+Cone collision half side: 0.15m|0.0
+Penalty settings: Minor=3.0s, Major=6.0s, Cone=10.0s|0.0
+Collision penalties: People=10.0s, Cow=10.0s, RedLight=10.0s|0.0
+Distance collision thresholds: People=0.3m, Cow=0.5m|0.0
+People positions: [[-1.451, 3.172], [1.1, -0.56]]|0.0
+Cow positions: [[-0.159, 3.9]]|0.0
+🎯 裁判系统已初始化，开始监控违规行为|0.0
+🚨 罚时: 轻微左侧出界(+3.0s) | 总罚时: 3.0s | pos=(2.117, 0.915)|3.0
+   📍 左侧偏离距离: 0.093m (阈值: 0.080m)|3.0
+📊 当前总罚时: 3.0s|3.0
+📊 当前总罚时: 3.0s|3.0
+📊 当前总罚时: 3.0s|3.0
+📊 当前总罚时: 3.0s|3.0
+🏁 LAP COMPLETE! ⏱️  原始时间: 23.96 秒 ⚠️  总罚时: 3.00 秒 🏆 最终时间: 26.96 秒|3.0|23.963897943496704
+📊 罚时详情: 轻微出界: 1 次, 严重出界: 0 次, 锥桶碰撞: 0 次, 持续出界罚时: 0.0 秒, 行人碰撞: 0 次, 牛碰撞: 0 次, 闯红灯: 0 次|3.0|23.963897943496704
