@@ -1,58 +1,76 @@
-# residual_rl_line_following_snapshot_20260614_202559
+# QIMODAZUOYE Teacher - 0.08 罚时口径稳定版
 
-This snapshot saves the current local experiment version after adding line-following tuning hooks.
+这个包是当前调好的 `qimodazuoye_teacher` 可运行版本。目标口径：
 
-## Saved State
+- 罚时系统阈值使用 `PENALTY_MINOR_DEVIATION_THRESHOLD=0.08`
+- 锥桶后的不可避免压线允许 3 秒罚时
+- 行人、牛、上方行人后到最后直道入口不应再产生 0.08 口径罚时
+- 最近验证结果：连续 3 个有效样本均为 `penalty=3.0s`
 
-- Project: `qimodazuoye_teacher/qimodazuoye`
-- Saved at: `2026-06-14 20:25:59`
-- Current strict penalty settings are preserved in `PenaltySystem.py`:
-  - minor line threshold: `0.04`
-  - continuous line interval: `1.5s`
-  - cone visual/collision half side: `0.15`
-- Known best verified run for this code line is still:
-  - raw time: about `27.62s`
-  - penalty: `9.0s`
-  - final time: about `36.62s`
-  - collision count: `0`
-  - report: `runs/residual_rl_penalty004_v4_actor_micro/eval_keep_upper_window_only.json`
+## 运行前准备
 
-## Important Notes
+1. 打开 QLAB，但不要重启 QLAB。
+2. 进入 `Self-Driving Car Studio -> Plane` 场景。
+3. 不要移动或缩放 QLAB 窗口。
+4. 确认本目录下存在 `quanser\python.exe` 和 `qlabspretrained.pt`。
 
-- This is not yet the final `3s`-penalty target.
-- The default behavior is intended to stay close to the current stable `9s` version.
-- Large local runtimes/dependencies are intentionally not included:
-  - `python/`, `quanser/`, `rtmodels/`
-  - `qlabspretrained.pt`
-  - trained model archives such as `best_model.zip`
-  - full QLAB installation files
-  These should remain available in the local lab environment when running the full simulator/camera stack.
-- New tuning hooks are saved but default off or default-neutral:
-  - `SCENARIO3_ARCLENGTH_TARGET=1`: optional continuous arclength lookahead target.
-  - `RL_LINE_DAMPING_ENABLED=1`: optional residual steering damping near line limits.
-  - `LOWER_CORNER_TARGET_Y`, `LOWER_CORNER_FORWARD_X`, `LOWER_CORNER_SPEED_CAP`: lower-left corner tuning.
-  - `COW_ENTRY_TARGET_Y`, `COW_ENTRY_X_OFFSET`, `COW_CLEARANCE_TARGET_Y`, `COW_CLEARANCE_X_OFFSET`: cow-area line tuning.
-  - `RL_STRICT_LANE_LOWER_LEFT_MAX`, `RL_STRICT_LANE_LOWER_LEFT_GAIN`: local strict-lane shield tuning.
-- Recent experiments showed that broad/global line-following changes easily make cone/cow behavior worse. Future work should prefer local or learned residual fixes.
+如果场景卡住或行人/牛没有加载，运行脚本会尝试执行“退出 Plane 再重新进入 Plane”的流程，但不会重启 QLAB。
 
-## Reproduce Current Stable Eval
+## 推荐运行方法
 
-From the project root:
+双击：
 
-The command below expects the local lab machine to already have the omitted
-model file at `runs/residual_rl_penalty004_v2/best_model.zip`.
-
-```powershell
-$env:PYTHONIOENCODING='utf-8'
-Remove-Item Env:\SCENARIO3_ARCLENGTH_TARGET -ErrorAction SilentlyContinue
-Remove-Item Env:\RL_LINE_DAMPING_ENABLED -ErrorAction SilentlyContinue
-Remove-Item Env:\RL_ACTOR_RESIDUAL_ENABLED -ErrorAction SilentlyContinue
-.\quanser\python.exe rl\eval_residual_policy.py --scenario 3 --model runs\residual_rl_penalty004_v2\best_model.zip --episodes 1 --out runs\residual_rl_penalty004_v4_actor_micro\eval_snapshot_rerun.json --base_policy strongest --max_steps 5000 --auto_reenter_plane
+```bat
+run_penalty008_fast_safe.bat
 ```
 
-## Included Files
+或者在 PowerShell 中运行：
 
-- Core controller and referee files.
-- `rl/*.py` residual RL environment/training/evaluation files.
-- Residual RL config and key reports. Model archives are intentionally omitted from GitHub.
-- Key reports/traces from the recent tuning pass.
+```powershell
+cd /d 解压后的\qimodazuoye
+$env:PENALTY_MINOR_DEVIATION_THRESHOLD = "0.08"
+$env:PYTHONPATH = "$PWD\python;$env:PYTHONPATH"
+.\quanser\python.exe rl\trace_residual_policy.py --base_policy fast_safe --model zero --auto_reenter_plane --out runs\trace_penalty008_latest.csv
+```
+
+注意：PowerShell 里不要使用带空格的反引号换行；推荐直接使用上面的一整行命令。
+
+## 结果查看
+
+运行结束后，终端会输出类似：
+
+```text
+final: raw=28.xx penalty=3.0 final=31.xx
+```
+
+生成的轨迹文件在：
+
+```text
+runs\trace_penalty008_latest.csv
+```
+
+可以分析轨迹：
+
+```powershell
+.\quanser\python.exe rl\analyze_trace.py runs\trace_penalty008_latest.csv
+```
+
+## 已验证样本
+
+当前版本的有效验证轨迹：
+
+- `runs\trace_fast_safe_penalty008_cowexit_soft_20260615_180719.csv`
+- `runs\trace_fast_safe_penalty008_cowexit_soft_stability2_20260615_180851.csv`
+- `runs\trace_fast_safe_penalty008_cowexit_soft_stability3_20260615_181222.csv`
+
+三次结果都只有锥桶区 3 秒罚时；行人、牛、最后直道入口没有 0.08 口径罚时。
+
+## 其他入口
+
+GUI 入口仍然保留：
+
+```bat
+start.bat
+```
+
+但本版本最终验证使用的是 `rl\trace_residual_policy.py --base_policy fast_safe --model zero`，建议比赛/复现实验优先使用推荐运行方法。

@@ -138,6 +138,27 @@ class AutonomousDriveCore:
             "segment_name": "uninitialized",
             "residual_enabled": False,
         }
+        self.lane_assist_enabled = (
+            scenario_num == 3 and os.environ.get("LANE_ASSIST_ENABLED", "0") == "1"
+        )
+        self.lane_assist_with_adapter = os.environ.get("LANE_ASSIST_WITH_ADAPTER", "0") == "1"
+        self.lane_assist_start = float(os.environ.get("LANE_ASSIST_START", "0.040"))
+        self.lane_assist_gain = float(os.environ.get("LANE_ASSIST_GAIN", "1.20"))
+        self.lane_assist_max = float(os.environ.get("LANE_ASSIST_MAX", "0.060"))
+        self.lane_assist_heading_gain = float(os.environ.get("LANE_ASSIST_HEADING_GAIN", "0.050"))
+        self.lane_assist_heading_max = float(os.environ.get("LANE_ASSIST_HEADING_MAX", "0.035"))
+        self.lane_assist_speed_start = float(os.environ.get("LANE_ASSIST_SPEED_START", "0.055"))
+        self.lane_assist_speed_cap = float(os.environ.get("LANE_ASSIST_SPEED_CAP", "0.70"))
+        self.lane_assist_cone_max = float(os.environ.get("LANE_ASSIST_CONE_MAX", "0.020"))
+        self.lane_assist_cone_speed_cap = float(
+            os.environ.get("LANE_ASSIST_CONE_SPEED_CAP", str(self.lane_assist_speed_cap))
+        )
+        self.last_lane_assist_record = {
+            "correction": 0.0,
+            "signed_deviation": 0.0,
+            "heading_error": 0.0,
+            "speed_cap": 0.0,
+        }
         
         # 场景控制开关
         self.ENABLE_CONE_AVOIDANCE = (scenario_num == 3)
@@ -464,7 +485,7 @@ class AutonomousDriveCore:
 
         x = float(self.current_position[0])
         y = float(self.current_position[1])
-        near_lower_people = 0.05 <= x <= 1.65 and -1.45 <= y <= -0.35
+        near_lower_people = 0.05 <= x <= 1.65 and -1.75 <= y <= -0.35
         near_cow = -0.75 <= x <= 1.35 and 3.55 <= y <= 4.75
         near_upper_people = -2.35 <= x <= -1.00 and 2.75 <= y <= 4.55
         if not (near_lower_people or near_cow or near_upper_people):
@@ -676,6 +697,87 @@ class AutonomousDriveCore:
         str_max = 0.52 if self.scenario_num == 3 else 0.4
         return max(min(delta, str_max), -str_max), target_angle, rotated_x, rotated_y
 
+    @staticmethod
+    def _wrap_angle(angle):
+        return float((angle + math.pi) % (2.0 * math.pi) - math.pi)
+
+    def _path_heading_error(self):
+        points = self.path_points
+        if points is None or len(points) < 2:
+            return 0.0
+
+        car_pos = np.asarray(self.current_position, dtype=float)
+        path_points = np.asarray(points, dtype=float)
+        nearest = int(np.argmin(np.linalg.norm(path_points - car_pos, axis=1)))
+        p1_idx = nearest
+        p2_idx = min(nearest + 1, len(path_points) - 1)
+        if p1_idx == p2_idx and p1_idx > 0:
+            p1_idx -= 1
+
+        segment_vec = path_points[p2_idx] - path_points[p1_idx]
+        if float(np.linalg.norm(segment_vec)) < 1e-6:
+            return 0.0
+
+        path_heading = math.atan2(float(segment_vec[1]), float(segment_vec[0]))
+        return self._wrap_angle(path_heading - float(self.yaw))
+
+    def _lane_assist_adjustment(self, steering_angle):
+        """Small lane-centering trim for non-RL baseline runs."""
+        self.last_lane_assist_record = {
+            "correction": 0.0,
+            "signed_deviation": 0.0,
+            "heading_error": 0.0,
+            "speed_cap": 0.0,
+        }
+        if (
+            not self.lane_assist_enabled
+            or self.penalty_system is None
+            or self.current_position is None
+            or (self.action_adapter is not None and not self.lane_assist_with_adapter)
+        ):
+            return steering_angle, 0.0
+
+        deviation, is_right = self.penalty_system.calculate_lane_deviation(self.current_position)
+        signed_deviation = -float(deviation) if is_right else float(deviation)
+        x = float(self.current_position[0])
+        y = float(self.current_position[1])
+
+        max_correction = self.lane_assist_max
+        speed_cap = self.lane_assist_speed_cap
+        if 0.95 <= y <= 1.34 and 1.86 <= x <= 2.10:
+            max_correction = min(max_correction, self.lane_assist_cone_max)
+            speed_cap = self.lane_assist_cone_speed_cap
+
+        correction = 0.0
+        excess = abs(signed_deviation) - self.lane_assist_start
+        if excess > 0.0:
+            correction += float(
+                np.sign(signed_deviation)
+                * min(max_correction, excess * self.lane_assist_gain)
+            )
+
+        heading_error = self._path_heading_error()
+        if self.lane_assist_heading_gain > 0.0 and abs(heading_error) > 0.03:
+            correction += float(
+                np.clip(
+                    -heading_error * self.lane_assist_heading_gain,
+                    -self.lane_assist_heading_max,
+                    self.lane_assist_heading_max,
+                )
+            )
+
+        correction = float(np.clip(correction, -max_correction, max_correction))
+        str_max = 0.52 if self.scenario_num == 3 else 0.4
+        adjusted_steering = float(np.clip(steering_angle + correction, -str_max, str_max))
+        lane_speed_cap = speed_cap if abs(signed_deviation) > self.lane_assist_speed_start else 0.0
+        self.last_lane_assist_record = {
+            "correction": correction,
+            "signed_deviation": signed_deviation,
+            "heading_error": heading_error,
+            "speed_cap": lane_speed_cap,
+        }
+        return adjusted_steering, lane_speed_cap
+
     def adjust_speed_based_on_steering_angle(self, steering_angle, current_speed):
         """
         基于转向角调整速度以获得更好的控制效果
@@ -724,12 +826,16 @@ class AutonomousDriveCore:
         """
         使用新的控制输入更新车辆状态
         """
-        # Adjust speed based on steering angle
-        speed = self.adjust_speed_based_on_steering_angle(steering_angle, speed)
-        
         # Apply avoidance steering adjustment if needed
         if avoidance and self.ENABLE_CONE_AVOIDANCE:
             steering_angle -= self.avoid_angle
+
+        steering_angle, lane_speed_cap = self._lane_assist_adjustment(steering_angle)
+
+        # Adjust speed based on steering angle
+        speed = self.adjust_speed_based_on_steering_angle(steering_angle, speed)
+        if lane_speed_cap > 0.0:
+            speed = min(speed, lane_speed_cap)
 
         speed, steering_angle = self.apply_action_adapter(
             speed,
@@ -896,7 +1002,7 @@ class AutonomousDriveCore:
                         x, y = location[:2]
                         if i == 0 and -2.25 <= x <= -1.40 and 3.05 <= y <= 3.30:
                             people_positions.append(location[:2])  # 只取x,y坐标
-                        elif i == 1 and 0.95 <= x <= 1.25 and -1.35 <= y <= -0.50:
+                        elif i == 1 and 0.95 <= x <= 1.25 and -1.75 <= y <= -0.50:
                             people_positions.append(location[:2])  # 只取x,y坐标
             except Exception as e:
                 print(f"⚠️ 获取行人位置失败: {e}")
@@ -914,7 +1020,7 @@ class AutonomousDriveCore:
                     success, location, rotation, scale = cow_actor.get_world_transform()
                     if success:
                         x, y = location[:2]
-                        if -0.30 <= x <= -0.02 and 3.85 <= y <= 4.65:
+                        if -0.30 <= x <= -0.02 and 3.55 <= y <= 4.65:
                             cow_positions.append(location[:2])  # 只取x,y坐标
             except Exception as e:
                 print(f"⚠️ 获取牛位置失败: {e}")

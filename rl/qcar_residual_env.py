@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import sys
 import time
+import math
+import json
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -23,14 +25,14 @@ from AutonomousDriveCore import AutonomousDriveCore
 from StudentDecision import StudentDecision
 
 try:
-    from .baseline_registry import STRONGEST_BASE_POLICY_ENV, USER_CONFIRMED_STRONGEST
+    from .baseline_registry import FAST_LEARN_BASE_POLICY_ENV, FAST_SAFE_BASE_POLICY_ENV, STRONGEST_BASE_POLICY_ENV, USER_CONFIRMED_STRONGEST
     from .qlab_reentry import reenter_plane
     from .residual_action import ResidualActionApplier, get_action_space
     from .reward import ResidualReward
     from .segmenter import TrackSegmenter
     from .state_encoder import StateEncoder
 except ImportError:  # script-style import fallback
-    from baseline_registry import STRONGEST_BASE_POLICY_ENV, USER_CONFIRMED_STRONGEST
+    from baseline_registry import FAST_LEARN_BASE_POLICY_ENV, FAST_SAFE_BASE_POLICY_ENV, STRONGEST_BASE_POLICY_ENV, USER_CONFIRMED_STRONGEST
     from qlab_reentry import reenter_plane
     from residual_action import ResidualActionApplier, get_action_space
     from reward import ResidualReward
@@ -62,6 +64,8 @@ class QCarResidualEnv(gym.Env):
         self.auto_reenter_plane = bool(
             auto_reenter_plane or os.environ.get("QLAB_AUTO_REENTER_PLANE", "0") == "1"
         )
+        self._previous_env_values: Dict[str, Optional[str]] = {}
+        self._apply_base_policy_env()
 
         self.segmenter = TrackSegmenter()
         self.encoder = StateEncoder()
@@ -82,7 +86,6 @@ class QCarResidualEnv(gym.Env):
         self.previous_info: Dict[str, Any] = {}
         self.previous_penalty = 0.0
         self.previous_penalty_breakdown: Dict[str, Any] = {}
-        self._previous_env_values: Dict[str, Optional[str]] = {}
         self._last_progress_position: Optional[np.ndarray] = None
         self._stall_steps = 0
         self._stall_distance_epsilon = float(os.environ.get("RL_STALL_DISTANCE_EPSILON", "0.0002"))
@@ -97,6 +100,23 @@ class QCarResidualEnv(gym.Env):
         )
         self.strict_lane_lower_left_gain = float(
             os.environ.get("RL_STRICT_LANE_LOWER_LEFT_GAIN", str(self.strict_lane_gain))
+        )
+        self.strict_lane_heading_gain = float(os.environ.get("RL_STRICT_LANE_HEADING_GAIN", "0.00"))
+        self.strict_lane_heading_max = float(os.environ.get("RL_STRICT_LANE_HEADING_MAX", "0.060"))
+        self.strict_lane_speed_cap = float(os.environ.get("RL_STRICT_LANE_SPEED_CAP", "0.00"))
+        self.strict_lane_cone_speed_cap = float(
+            os.environ.get("RL_STRICT_LANE_CONE_SPEED_CAP", str(self.strict_lane_speed_cap))
+        )
+        self.strict_lane_speed_start = float(os.environ.get("RL_STRICT_LANE_SPEED_START", "0.055"))
+        self.strict_lane_crosstrack_sign = float(os.environ.get("RL_STRICT_LANE_CROSSTRACK_SIGN", "1.0"))
+        self.strict_lane_lower_entry_crosstrack_sign = float(
+            os.environ.get("RL_STRICT_LANE_LOWER_ENTRY_CROSSTRACK_SIGN", str(self.strict_lane_crosstrack_sign))
+        )
+        self.strict_lane_lower_upcurve_crosstrack_sign = float(
+            os.environ.get("RL_STRICT_LANE_LOWER_UPCURVE_CROSSTRACK_SIGN", str(self.strict_lane_crosstrack_sign))
+        )
+        self.strict_lane_final_crosstrack_sign = float(
+            os.environ.get("RL_STRICT_LANE_FINAL_CROSSTRACK_SIGN", str(self.strict_lane_crosstrack_sign))
         )
         self.line_damping_enabled = os.environ.get("RL_LINE_DAMPING_ENABLED", "0") == "1"
         self.line_damping_start = float(os.environ.get("RL_LINE_DAMPING_START", "0.030"))
@@ -252,13 +272,31 @@ class QCarResidualEnv(gym.Env):
         self._restore_base_policy_env()
 
     def _apply_base_policy_env(self):
-        if self.base_policy != "strongest":
+        policy_envs = {
+            "strongest": STRONGEST_BASE_POLICY_ENV,
+            "fast_safe": FAST_SAFE_BASE_POLICY_ENV,
+            "fast_learn": FAST_LEARN_BASE_POLICY_ENV,
+        }
+        policy_env = policy_envs.get(self.base_policy)
+        if policy_env is None:
             return
         if self._previous_env_values:
             return
-        for key, value in STRONGEST_BASE_POLICY_ENV.items():
+        for key, value in policy_env.items():
             self._previous_env_values[key] = os.environ.get(key)
             os.environ[key] = str(value)
+        overrides_raw = os.environ.get("RL_BASE_POLICY_OVERRIDES")
+        if overrides_raw:
+            try:
+                overrides = json.loads(overrides_raw)
+            except json.JSONDecodeError as exc:
+                raise ValueError("RL_BASE_POLICY_OVERRIDES must be a JSON object") from exc
+            if not isinstance(overrides, dict):
+                raise ValueError("RL_BASE_POLICY_OVERRIDES must be a JSON object")
+            for key, value in overrides.items():
+                if key not in self._previous_env_values:
+                    self._previous_env_values[key] = os.environ.get(key)
+                os.environ[str(key)] = str(value)
 
     def _restore_base_policy_env(self):
         if not self._previous_env_values:
@@ -288,9 +326,13 @@ class QCarResidualEnv(gym.Env):
             final_turn += line_damping
             record.setdefault("final_action", {})["turn"] = float(final_turn)
             record.setdefault("final_action", {})["forward"] = float(final_forward)
-        lane_correction = self._strict_lane_correction(core, segment)
+        lane_correction, lane_speed_cap, lane_meta = self._strict_lane_correction(core, segment)
         if lane_correction:
             final_turn += lane_correction
+            record.setdefault("final_action", {})["turn"] = float(final_turn)
+            record.setdefault("final_action", {})["forward"] = float(final_forward)
+        if lane_speed_cap > 0.0 and final_forward > lane_speed_cap:
+            final_forward = lane_speed_cap
             record.setdefault("final_action", {})["turn"] = float(final_turn)
             record.setdefault("final_action", {})["forward"] = float(final_forward)
         record.update(
@@ -299,6 +341,9 @@ class QCarResidualEnv(gym.Env):
                 "segment_name": segment.name,
                 "context": context,
                 "strict_lane_correction": lane_correction,
+                "strict_lane_heading_error": lane_meta.get("heading_error", 0.0),
+                "strict_lane_signed_deviation": lane_meta.get("signed_deviation", 0.0),
+                "strict_lane_speed_cap": lane_speed_cap,
                 "line_damping_correction": line_damping,
             }
         )
@@ -334,32 +379,97 @@ class QCarResidualEnv(gym.Env):
         strength = min(1.0, max(0.0, (deviation - self.line_damping_start) / span))
         return float(-residual_bias * strength)
 
-    def _strict_lane_correction(self, core, segment) -> float:
-        """Small cross-track steering trim for the stricter 0.04m local experiment."""
-        if not self.strict_lane_shield or core.penalty_system is None or core.current_position is None:
-            return 0.0
+    @staticmethod
+    def _wrap_angle(angle: float) -> float:
+        return float((angle + math.pi) % (2.0 * math.pi) - math.pi)
+
+    def _lane_geometry(self, core):
+        if core.penalty_system is None or core.current_position is None:
+            return None
         deviation, is_right = core.penalty_system.calculate_lane_deviation(core.current_position)
         signed_deviation = -float(deviation) if is_right else float(deviation)
 
+        heading_error = 0.0
+        path_points = getattr(core, "path_points", None)
+        if path_points is not None and len(path_points) >= 2:
+            points = np.asarray(path_points, dtype=float)
+            pos = np.asarray(core.current_position, dtype=float)
+            nearest = int(np.argmin(np.linalg.norm(points - pos, axis=1)))
+            p1_idx = nearest
+            p2_idx = min(nearest + 1, len(points) - 1)
+            if p1_idx == p2_idx and p1_idx > 0:
+                p1_idx -= 1
+            segment_vec = points[p2_idx] - points[p1_idx]
+            if float(np.linalg.norm(segment_vec)) > 1e-6:
+                path_heading = math.atan2(float(segment_vec[1]), float(segment_vec[0]))
+                heading_error = self._wrap_angle(path_heading - float(core.yaw))
+
+        return float(deviation), signed_deviation, heading_error
+
+    def _strict_lane_correction(self, core, segment):
+        """Small cross-track steering trim for the stricter 0.04m local experiment."""
+        if not self.strict_lane_shield or core.penalty_system is None or core.current_position is None:
+            return 0.0, 0.0, {}
+        lane_geometry = self._lane_geometry(core)
+        if lane_geometry is None:
+            return 0.0, 0.0, {}
+        deviation, signed_deviation, heading_error = lane_geometry
+
         x = float(core.current_position[0])
         y = float(core.current_position[1])
-        if getattr(segment, "name", "") == "pedestrian_cow_area" and -0.70 <= x <= 0.80 and 3.55 <= y <= 4.72:
-            return 0.0
+        if (
+            getattr(segment, "name", "") == "pedestrian_cow_area"
+            and -0.70 <= x <= 0.80
+            and 3.55 <= y <= 4.72
+            and not bool(getattr(self.student, "cow_clearance_yield_done", False))
+        ):
+            return 0.0, 0.0, {
+                "signed_deviation": signed_deviation,
+                "heading_error": heading_error,
+            }
 
         start = self.strict_lane_start
         gain = self.strict_lane_gain
         max_correction = self.strict_lane_max
+        crosstrack_sign = self.strict_lane_crosstrack_sign
+        speed_cap = self.strict_lane_speed_cap
         if -1.05 <= x <= -0.88 and -1.04 <= y <= -0.95:
             gain = self.strict_lane_lower_left_gain
             max_correction = max(max_correction, self.strict_lane_lower_left_max)
+            crosstrack_sign = self.strict_lane_lower_entry_crosstrack_sign
+        if -0.08 <= x <= 0.24 and -1.06 <= y <= -0.99:
+            crosstrack_sign = self.strict_lane_lower_entry_crosstrack_sign
+        if 2.00 <= x <= 2.16 and -0.86 <= y <= -0.60:
+            crosstrack_sign = self.strict_lane_lower_upcurve_crosstrack_sign
         if 0.95 <= y <= 1.34 and 1.86 <= x <= 2.10:
             max_correction = self.strict_lane_cone_max
+            speed_cap = self.strict_lane_cone_speed_cap
+        if -2.14 <= x <= -1.85 and 2.15 <= y <= 2.85:
+            crosstrack_sign = self.strict_lane_final_crosstrack_sign
 
         excess = abs(signed_deviation) - start
-        if excess <= 0.0:
-            return 0.0
-        correction = np.sign(signed_deviation) * min(max_correction, excess * gain)
-        return float(correction)
+        correction = 0.0
+        if excess > 0.0:
+            correction += float(
+                crosstrack_sign
+                * np.sign(signed_deviation)
+                * min(max_correction, excess * gain)
+            )
+
+        if self.strict_lane_heading_gain > 0.0 and abs(heading_error) > 0.03:
+            correction += float(
+                np.clip(
+                    -heading_error * self.strict_lane_heading_gain,
+                    -self.strict_lane_heading_max,
+                    self.strict_lane_heading_max,
+                )
+            )
+        correction = float(np.clip(correction, -max_correction, max_correction))
+        lane_speed_cap = speed_cap if abs(signed_deviation) > self.strict_lane_speed_start else 0.0
+        return correction, lane_speed_cap, {
+            "signed_deviation": signed_deviation,
+            "heading_error": heading_error,
+        }
 
     def _base_policy_tick(self):
         det_result = [[], [], []] if self.scenario == 3 else self.core.detection()
@@ -423,6 +533,9 @@ class QCarResidualEnv(gym.Env):
             "residual_action": record.get("residual_action", {"speed_delta": 0.0, "steering_bias": 0.0}),
             "final_action": record.get("final_action", {"forward": 0.0, "turn": 0.0}),
             "strict_lane_correction": float(record.get("strict_lane_correction", 0.0) or 0.0),
+            "strict_lane_heading_error": float(record.get("strict_lane_heading_error", 0.0) or 0.0),
+            "strict_lane_signed_deviation": float(record.get("strict_lane_signed_deviation", 0.0) or 0.0),
+            "strict_lane_speed_cap": float(record.get("strict_lane_speed_cap", 0.0) or 0.0),
             "step_count": self.step_count,
         }
         info.update(encoder_info)

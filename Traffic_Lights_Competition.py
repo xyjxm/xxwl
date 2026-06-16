@@ -58,6 +58,9 @@ if TRAFFIC_LIGHT_MODE not in ("triggered", "fixed_green"):
 SCRIPTED_PERSON1_DELAY = env_float("TRAFFIC_PERSON1_DELAY", 0.0)
 SCRIPTED_PERSON2_DELAY = env_float("TRAFFIC_PERSON2_DELAY", 0.0)
 SCRIPTED_COW_DELAY = env_float("TRAFFIC_COW_DELAY", 0.0)
+TRAFFIC_COW_SCRIPTED = env_flag("TRAFFIC_COW_SCRIPTED", False)
+TRAFFIC_PERSON2_ENDPOINT_Y = env_float("TRAFFIC_PERSON2_ENDPOINT_Y", -1.3)
+TRAFFIC_COW_ENDPOINT_Y = env_float("TRAFFIC_COW_ENDPOINT_Y", 3.9)
 
 READY_FILE = os.path.join(BASE_DIR, "traffic_ready.flag")
 STATUS_FILE = os.path.join(BASE_DIR, "traffic_status.txt")
@@ -87,6 +90,7 @@ write_status(f"Traffic script started; scenario={scenario_num}")
 write_status(
     "Traffic config: "
     f"actors={TRAFFIC_ACTOR_MODE}, lights={TRAFFIC_LIGHT_MODE}, "
+    f"cow_scripted={TRAFFIC_COW_SCRIPTED}, "
     f"delays=({SCRIPTED_PERSON1_DELAY:.2f},"
     f"{SCRIPTED_PERSON2_DELAY:.2f},{SCRIPTED_COW_DELAY:.2f})"
 )
@@ -182,8 +186,8 @@ if scenario_num > 1:
 # Define three different paths
 paths = {
     1: ([-1.451, 3.172, 0.006], [-2.2, 3.1722, 0.006]),      # Original path
-    2: ([1.1, -0.56, 0.006], [1.1, -1.3, 0.006]),    # Second path
-    3: ([-0.159, 3.9, 0.006], [-0.159, 4.6, 0.006])       # Third path
+    2: ([1.1, -0.56, 0.006], [1.1, TRAFFIC_PERSON2_ENDPOINT_Y, 0.006]),    # Second path
+    3: ([-0.159, TRAFFIC_COW_ENDPOINT_Y, 0.006], [-0.159, 4.6, 0.006])       # Third path
 }
 
 Endpoint1, Startpoint1 = paths[1]
@@ -303,6 +307,8 @@ try:
             People0_hit = False
             People1_hit = False
             Cow0_hit = False
+        elif TRAFFIC_COW_SCRIPTED:
+            Cow0_hit = False
 
 
         if checkscore0 != 0 or checkscore1 != 0:
@@ -372,6 +378,10 @@ try:
                     move_actor_once("person1", person1, Endpoint1, 0.25)
                 if scripted_elapsed >= SCRIPTED_PERSON2_DELAY:
                     move_actor_once("person2", person2, Endpoint2, 0.5)
+                if scripted_elapsed >= SCRIPTED_COW_DELAY:
+                    move_actor_once("cow1", cow1, Endpoint3, 0.2)
+            elif TRAFFIC_COW_SCRIPTED and scripted_start_time is not None:
+                scripted_elapsed = time.time() - scripted_start_time
                 if scripted_elapsed >= SCRIPTED_COW_DELAY:
                     move_actor_once("cow1", cow1, Endpoint3, 0.2)
 

@@ -1,5 +1,6 @@
 import time
 import sys
+import os
 import numpy as np
 
 class PenaltySystem:
@@ -25,7 +26,9 @@ class PenaltySystem:
         
         # === 车道偏离罚时参数 ===
         # 参考强化学习代码中的阈值设置
-        self.MINOR_DEVIATION_THRESHOLD = 0.04      # 轻微出界阈值：0.04m
+        self.MINOR_DEVIATION_THRESHOLD = float(
+            os.environ.get("PENALTY_MINOR_DEVIATION_THRESHOLD", "0.04")
+        )      # 轻微出界阈值：默认0.04m，可用环境变量临时调整
         self.LEFT_MAJOR_DEVIATION_THRESHOLD = 0.12  # 左侧中等出界阈值：0.12m
         self.LEFT_TERMINAL_THRESHOLD = 0.18         # 左侧严重出界阈值：0.18m
         self.RIGHT_MAJOR_DEVIATION_THRESHOLD = 0.12 # 右侧中等出界阈值：0.12m

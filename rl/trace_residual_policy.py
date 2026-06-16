@@ -77,6 +77,9 @@ def main():
             row["residual_speed_delta"] = residual_action.get("speed_delta")
             row["residual_steering_bias"] = residual_action.get("steering_bias")
             row["strict_lane_correction"] = info.get("strict_lane_correction")
+            row["strict_lane_heading_error"] = info.get("strict_lane_heading_error")
+            row["strict_lane_signed_deviation"] = info.get("strict_lane_signed_deviation")
+            row["strict_lane_speed_cap"] = info.get("strict_lane_speed_cap")
             rows.append(row)
     finally:
         env.close()

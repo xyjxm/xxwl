@@ -88,6 +88,7 @@ def main():
                 "raw_time": info.get("raw_time"),
                 "penalty_time": info.get("penalty_time"),
                 "final_time": info.get("final_time"),
+                "collision_count": info.get("collision_count"),
                 "invalid_reason": info.get("invalid_reason"),
                 "stall_steps": info.get("stall_steps"),
             }
@@ -103,12 +104,13 @@ def main():
 
             final_time = info.get("final_time")
             penalty_time = info.get("penalty_time")
+            collision_count = int(info.get("collision_count", 0) or 0)
             if final_time is not None and penalty_time is not None:
-                rank = (float(penalty_time), float(final_time))
+                rank = (collision_count, float(penalty_time), float(final_time))
                 if self.best_rank is None or rank < self.best_rank:
                     self.best_rank = rank
                     self.model.save(save_dir / "best_by_penalty")
-                if float(penalty_time) <= args.candidate_penalty_threshold:
+                if collision_count == 0 and float(penalty_time) <= args.candidate_penalty_threshold:
                     safe_penalty = str(float(penalty_time)).replace(".", "p")
                     safe_final = str(round(float(final_time), 3)).replace(".", "p")
                     self.model.save(
@@ -117,6 +119,7 @@ def main():
             if (
                 final_time is not None
                 and penalty_time is not None
+                and collision_count == 0
                 and float(penalty_time) <= USER_CONFIRMED_STRONGEST.mean_penalty_time_seconds
                 and (
                     self.best_rank is None

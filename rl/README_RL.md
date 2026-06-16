@@ -16,9 +16,22 @@ The user-confirmed strongest baseline for this experiment is:
 
 `base_policy=strongest` applies the baseline profile:
 
-- `SCENARIO3_CRUISE_SPEED_LIMIT=0.68`
-- `SCENARIO3_FINAL_SPEED_LIMIT=0.68`
+- `SCENARIO3_CRUISE_SPEED_LIMIT=0.80`
+- `SCENARIO3_FINAL_SPEED_LIMIT=0.82`
+- `COW_CLEARANCE_HOLD_SECONDS=3.00`
+- `STOP_SIGN_HOLD_SECONDS=0.00`
 - `CONE_PRE_X=1.950`
+
+`base_policy=fast_safe` is the current speed-oriented safe profile for further
+learning:
+
+- `SCENARIO3_CRUISE_SPEED_LIMIT=1.40`
+- `SCENARIO3_FINAL_SPEED_LIMIT=1.45`
+- `COW_CLEARANCE_HOLD_SECONDS=2.20`
+- `COW_CLEARANCE_MAX_X=0.70`
+- `COW_ENTRY_TARGET_Y=4.520`
+- `COW_CLEARANCE_TARGET_Y=4.520`
+- `RL_ACTOR_RESIDUAL_ENABLED=0`
 
 Hard pass requires deterministic evaluation to satisfy:
 
@@ -26,18 +39,18 @@ Hard pass requires deterministic evaluation to satisfy:
 - `mean_penalty_time <= 3.00`
 - `invalid_episode_count == 0`
 
-Latest local evaluation:
+Latest local evaluation under the stricter current pedestrian/cow waiting
+logic:
 
-- zero residual, 3 episodes: `mean_final_time=28.0696s`,
-  `mean_penalty_time=3.00s`, `invalid_episode_count=0`
-- residual SAC best model, 5 episodes: `mean_final_time=27.9865s`,
-  `mean_penalty_time=3.00s`, `invalid_episode_count=0`, `hard_pass=true`
+- `base_policy=strongest`, residual SAC `runs/residual_rl_penalty004_v2/best_model.zip`:
+  `raw_time=26.56s`, `penalty_time=18.00s`, `collision_count=0`.
+- `base_policy=fast_safe`, same residual model:
+  `raw_time=21.95s`, `penalty_time=18.00s`, `collision_count=0`.
 
-The deployed residual range is intentionally conservative. Residual control is
-disabled in the cone area and pedestrian/cow area, and only a small speed boost
-plus tiny steering bias is allowed on the final straight/finish approach. This
-keeps the learned policy from changing the visually sensitive obstacle
-avoidance behavior.
+The current best direction is to train residual control from `fast_safe`, while
+keeping cow residual disabled unless a separate safety gate proves no cow
+collision. A short SAC continuation with pedestrian residual enabled did not
+beat the older residual model, so it is archived but not deployed.
 
 ## Commands
 
@@ -65,10 +78,22 @@ SAC training:
 python rl/train_residual_sac.py --scenario 3 --total_steps 20000 --save_dir runs/residual_rl --seed 0 --base_policy strongest --reward_minor_threshold 0.04
 ```
 
+Fast-safe SAC continuation:
+
+```powershell
+python rl/train_residual_sac.py --scenario 3 --total_steps 20000 --save_dir runs/residual_rl_fast_safe --seed 0 --base_policy fast_safe --reward_minor_threshold 0.04 --init_model runs/residual_rl_penalty004_v2/best_model.zip
+```
+
 Deterministic evaluation:
 
 ```powershell
 python rl/eval_residual_policy.py --scenario 3 --model runs/residual_rl/best_model.zip --episodes 5 --out runs/residual_rl/eval.json --base_policy strongest --auto_reenter_plane
+```
+
+Fast-safe deterministic evaluation:
+
+```powershell
+python rl/eval_residual_policy.py --scenario 3 --model runs/residual_rl_penalty004_v2/best_model.zip --episodes 1 --out runs/residual_rl_penalty004_v4_actor_micro/eval_fast_safe_policy.json --base_policy fast_safe --max_steps 5000 --auto_reenter_plane
 ```
 
 ## Safety/validity notes

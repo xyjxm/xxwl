@@ -18,35 +18,104 @@ class StudentDecision:
         self.last_cow_stop_time = 0.0
         self.people_cooldown = 2.0
         self.cow_cooldown = 2.0
-        self.stop_sign_hold_seconds = float(os.environ.get("STOP_SIGN_HOLD_SECONDS", "0.0"))
+        self.stop_sign_hold_seconds = min(
+            float(os.environ.get("STOP_SIGN_HOLD_SECONDS", "0.0")),
+            float(os.environ.get("STOP_SIGN_MAX_HOLD_SECONDS", "0.15")),
+        )
         self.people_hold_seconds = float(os.environ.get("PEOPLE_HOLD_SECONDS", "1.0"))
         self.cow_hold_seconds = float(os.environ.get("COW_HOLD_SECONDS", "0.00"))
-        self.cow_clearance_hold_seconds = float(os.environ.get("COW_CLEARANCE_HOLD_SECONDS", "5.00"))
+        self.cow_clearance_hold_seconds = float(os.environ.get("COW_CLEARANCE_HOLD_SECONDS", "3.00"))
+        self.cow_clearance_post_hold_seconds = float(os.environ.get("COW_CLEARANCE_POST_HOLD_SECONDS", "0.00"))
+        self.cow_clearance_post_clear_y = float(os.environ.get("COW_CLEARANCE_POST_CLEAR_Y", "4.03"))
+        self.cow_clearance_post_hold_distance = float(os.environ.get("COW_CLEARANCE_POST_HOLD_DISTANCE", "0.54"))
+        self.cow_clearance_max_wait_seconds = float(os.environ.get("COW_CLEARANCE_MAX_WAIT_SECONDS", "8.00"))
+        self.cow_clearance_endpoint_y = float(os.environ.get("COW_CLEARANCE_ENDPOINT_Y", "3.650"))
+        self.cow_clearance_endpoint_speed = float(os.environ.get("COW_CLEARANCE_ENDPOINT_SPEED", "0.20"))
+        self.cow_clearance_wait_for_confirmation = (
+            os.environ.get("COW_CLEARANCE_WAIT_FOR_CONFIRMATION", "1") == "1"
+        )
+        self.cow_pre_move_stop_ticks = int(os.environ.get("COW_PRE_MOVE_STOP_TICKS", "1"))
         self.upper_people_hold_seconds = float(os.environ.get("UPPER_PEOPLE_HOLD_SECONDS", "2.20"))
-        self.lower_people_hold_seconds = float(os.environ.get("LOWER_PEOPLE_HOLD_SECONDS", "0.00"))
+        self.upper_people_strict_clear_enabled = os.environ.get("UPPER_PEOPLE_STRICT_CLEAR_ENABLED", "1") == "1"
+        self.upper_people_post_hold_distance = float(os.environ.get("UPPER_PEOPLE_POST_HOLD_DISTANCE", "0.42"))
+        self.upper_people_post_hold_seconds = float(os.environ.get("UPPER_PEOPLE_POST_HOLD_SECONDS", "3.40"))
+        self.upper_people_clear_settle_seconds = float(os.environ.get("UPPER_PEOPLE_CLEAR_SETTLE_SECONDS", "0.25"))
+        self.upper_people_min_clear_seconds = float(os.environ.get("UPPER_PEOPLE_MIN_CLEAR_SECONDS", "2.80"))
+        self.upper_people_forced_clear_seconds = float(os.environ.get("UPPER_PEOPLE_FORCED_CLEAR_SECONDS", "4.20"))
+        self.upper_people_clear_x = float(os.environ.get("UPPER_PEOPLE_CLEAR_X", "-1.550"))
+        self.upper_people_endpoint_x = float(os.environ.get("UPPER_PEOPLE_ENDPOINT_X", "-1.451"))
+        self.upper_people_endpoint_y = float(os.environ.get("UPPER_PEOPLE_ENDPOINT_Y", "3.1722"))
+        self.upper_people_speed = float(os.environ.get("UPPER_PEOPLE_SPEED", "0.25"))
+        self.upper_people_wait_for_confirmation = (
+            os.environ.get("UPPER_PEOPLE_WAIT_FOR_CONFIRMATION", "1") == "1"
+        )
+        self.upper_people_pre_request_enabled = os.environ.get("UPPER_PEOPLE_PRE_REQUEST_ENABLED", "0") == "1"
+        self.upper_people_pre_request_min_x = float(os.environ.get("UPPER_PEOPLE_PRE_REQUEST_MIN_X", "-0.60"))
+        self.upper_people_pre_request_max_x = float(os.environ.get("UPPER_PEOPLE_PRE_REQUEST_MAX_X", "0.12"))
+        self.upper_people_pre_request_min_y = float(os.environ.get("UPPER_PEOPLE_PRE_REQUEST_MIN_Y", "4.20"))
+        self.upper_people_pre_request_max_y = float(os.environ.get("UPPER_PEOPLE_PRE_REQUEST_MAX_Y", "4.58"))
+        self.lower_people_hold_seconds = float(os.environ.get("LOWER_PEOPLE_HOLD_SECONDS", "1.80"))
+        self.lower_people_post_hold_distance = float(os.environ.get("LOWER_PEOPLE_POST_HOLD_DISTANCE", "0.34"))
+        self.lower_people_post_hold_seconds = float(os.environ.get("LOWER_PEOPLE_POST_HOLD_SECONDS", "2.80"))
+        self.lower_people_clear_settle_seconds = float(os.environ.get("LOWER_PEOPLE_CLEAR_SETTLE_SECONDS", "0.35"))
+        self.lower_people_min_clear_seconds = float(os.environ.get("LOWER_PEOPLE_MIN_CLEAR_SECONDS", "2.45"))
+        self.lower_people_clear_y = float(os.environ.get("LOWER_PEOPLE_CLEAR_Y", "-1.300"))
+        self.lower_people_forced_clear_seconds = float(os.environ.get("LOWER_PEOPLE_FORCED_CLEAR_SECONDS", "2.80"))
+        self.lower_people_endpoint_y = float(os.environ.get("LOWER_PEOPLE_ENDPOINT_Y", "-1.600"))
+        self.lower_people_speed = float(os.environ.get("LOWER_PEOPLE_SPEED", "0.50"))
+        self.lower_people_wait_for_confirmation = (
+            os.environ.get("LOWER_PEOPLE_WAIT_FOR_CONFIRMATION", "1") == "1"
+        )
+        self.lower_people_guard_min_x = float(os.environ.get("LOWER_PEOPLE_GUARD_MIN_X", "0.26"))
+        self.lower_people_guard_max_x = float(os.environ.get("LOWER_PEOPLE_GUARD_MAX_X", "1.05"))
+        self.lower_people_guard_min_y = float(os.environ.get("LOWER_PEOPLE_GUARD_MIN_Y", "-1.36"))
+        self.lower_people_guard_max_y = float(os.environ.get("LOWER_PEOPLE_GUARD_MAX_Y", "-0.68"))
+        self.lower_people_pre_wait_speed = float(os.environ.get("LOWER_PEOPLE_PRE_WAIT_SPEED", "0.35"))
+        self.lower_people_pre_wait_min_x = float(os.environ.get("LOWER_PEOPLE_PRE_WAIT_MIN_X", "-0.10"))
         self.lower_people_pass_enabled = os.environ.get("LOWER_PEOPLE_PASS_ENABLED", "0") == "1"
         self.lower_people_pass_y = float(os.environ.get("LOWER_PEOPLE_PASS_Y", "-0.820"))
         self.lower_entry_target_y = float(os.environ.get("LOWER_ENTRY_TARGET_Y", "-1.115"))
         self.lower_entry_speed = float(os.environ.get("LOWER_ENTRY_SPEED", "2.08"))
         self.lower_mid_target_x = float(os.environ.get("LOWER_MID_TARGET_X", "2.00"))
-        self.lower_mid_target_y = float(os.environ.get("LOWER_MID_TARGET_Y", "-0.975"))
-        self.lower_mid_speed = float(os.environ.get("LOWER_MID_SPEED", "1.34"))
+        self.lower_mid_target_y = float(os.environ.get("LOWER_MID_TARGET_Y", "-0.840"))
+        self.lower_mid_speed = float(os.environ.get("LOWER_MID_SPEED", "1.00"))
         self.lower_exit_target_x = float(os.environ.get("LOWER_EXIT_TARGET_X", "2.05"))
-        self.lower_exit_target_y = float(os.environ.get("LOWER_EXIT_TARGET_Y", "-0.920"))
-        self.lower_exit_speed = float(os.environ.get("LOWER_EXIT_SPEED", "1.15"))
+        self.lower_exit_target_y = float(os.environ.get("LOWER_EXIT_TARGET_Y", "-0.840"))
+        self.lower_exit_speed = float(os.environ.get("LOWER_EXIT_SPEED", "0.90"))
+        self.lower_exit_max_x = float(os.environ.get("LOWER_EXIT_MAX_X", "1.82"))
         self.lower_after_wait_target_x = float(os.environ.get("LOWER_AFTER_WAIT_TARGET_X", "1.35"))
-        self.lower_after_wait_target_y = float(os.environ.get("LOWER_AFTER_WAIT_TARGET_Y", "-0.980"))
-        self.lower_after_wait_speed = float(os.environ.get("LOWER_AFTER_WAIT_SPEED", "0.25"))
+        self.lower_after_wait_target_y = float(os.environ.get("LOWER_AFTER_WAIT_TARGET_Y", "-0.820"))
+        self.lower_after_wait_speed = float(os.environ.get("LOWER_AFTER_WAIT_SPEED", "0.65"))
         self.lower_curve_enabled = os.environ.get("LOWER_CURVE_ENABLED", "0") == "1"
         self.lower_curve_target_x = float(os.environ.get("LOWER_CURVE_TARGET_X", "1.930"))
         self.lower_curve_forward_y = float(os.environ.get("LOWER_CURVE_FORWARD_Y", "0.300"))
         self.lower_curve_speed = float(os.environ.get("LOWER_CURVE_SPEED", "0.62"))
-        self.lower_overrides_enabled = os.environ.get("LOWER_OVERRIDES_ENABLED", "0") == "1"
+        self.lower_overrides_enabled = os.environ.get("LOWER_OVERRIDES_ENABLED", "1") == "1"
         self.upper_people_position_yield_done = False
+        self.upper_people_wait_pending = False
+        self.upper_people_motion_requested = False
+        self.upper_people_motion_request_time = 0.0
+        self.upper_people_clear_logged = False
+        self.upper_people_pre_request_logged = False
         self.lower_people_position_yield_done = False
+        self.lower_people_wait_pending = False
+        self.lower_people_motion_requested = False
+        self.lower_people_motion_request_time = 0.0
+        self.lower_people_clear_logged = False
         self.cow_position_yield_done = False
         self.cow_clearance_yield_done = False
+        self.cow_clearance_motion_requested = False
+        self.cow_clearance_motion_request_time = 0.0
+        self.cow_clearance_clear_logged = False
         self.single_tick_hold_until = 0.0
+        self.cow_restart_ticks = 0
+        self.cow_restart_max_ticks = int(os.environ.get("COW_RESTART_TICKS", "0"))
+        self.cow_restart_speed = float(os.environ.get("COW_RESTART_SPEED", "0.28"))
+        self.cow_restart_forward_x = float(os.environ.get("COW_RESTART_FORWARD_X", "0.08"))
+        self.cow_restart_min_x = float(os.environ.get("COW_RESTART_MIN_X", "0.30"))
+        self.cow_restart_target_y = float(os.environ.get("COW_RESTART_TARGET_Y", "4.455"))
+        self.cow_safety_clear_distance = float(os.environ.get("COW_SAFETY_CLEAR_DISTANCE", "0.00"))
+        self.cow_safety_hold_seconds = float(os.environ.get("COW_SAFETY_HOLD_SECONDS", "0.20"))
 
         self.last_cone_avoidance_time = 0.0
         self.cone_cooldown = 4.0
@@ -172,19 +241,62 @@ class StudentDecision:
         self.cone_right_keep_speed = float(os.environ.get("CONE_RIGHT_KEEP_SPEED", "0.62"))
         self.cone_right_return_speed = float(os.environ.get("CONE_RIGHT_RETURN_SPEED", "0.82"))
 
-        self.scenario3_cruise_speed_limit = float(os.environ.get("SCENARIO3_CRUISE_SPEED_LIMIT", "0.75"))
+        self.scenario3_cruise_speed_limit = float(os.environ.get("SCENARIO3_CRUISE_SPEED_LIMIT", "0.80"))
         self.scenario3_cruise_start_y = float(os.environ.get("SCENARIO3_CRUISE_START_Y", "1.65"))
-        self.scenario3_final_speed_limit = float(os.environ.get("SCENARIO3_FINAL_SPEED_LIMIT", "0.75"))
+        self.scenario3_final_speed_limit = float(os.environ.get("SCENARIO3_FINAL_SPEED_LIMIT", "0.82"))
         self.scenario3_final_slow_x = float(os.environ.get("SCENARIO3_FINAL_SLOW_X", "-1.25"))
         self.scenario3_strict_lane_speed_cap = float(os.environ.get("SCENARIO3_STRICT_LANE_SPEED_CAP", "99.0"))
+        self.upper_curve_speed_cap = float(os.environ.get("UPPER_CURVE_SPEED_CAP", "1.08"))
+        self.upper_vertical_enabled = os.environ.get("UPPER_VERTICAL_ENABLED", "0") == "1"
+        self.upper_vertical_start_y = float(os.environ.get("UPPER_VERTICAL_START_Y", "2.85"))
+        self.upper_vertical_end_y = float(os.environ.get("UPPER_VERTICAL_END_Y", "3.50"))
+        self.upper_vertical_target_x = float(os.environ.get("UPPER_VERTICAL_TARGET_X", "-1.950"))
+        self.upper_vertical_forward_y = float(os.environ.get("UPPER_VERTICAL_FORWARD_Y", "0.42"))
+        self.upper_vertical_speed_cap = float(os.environ.get("UPPER_VERTICAL_SPEED_CAP", "0.78"))
+        self.final_vertical_start_y = float(os.environ.get("FINAL_VERTICAL_START_Y", "2.15"))
+        self.final_vertical_end_y = float(os.environ.get("FINAL_VERTICAL_END_Y", "2.85"))
+        self.final_vertical_speed_cap = float(os.environ.get("FINAL_VERTICAL_SPEED_CAP", "0.68"))
+        self.final_vertical_pre_start_y = float(os.environ.get("FINAL_VERTICAL_PRE_START_Y", "9.00"))
+        self.final_vertical_pre_end_y = float(os.environ.get("FINAL_VERTICAL_PRE_END_Y", "9.10"))
+        self.final_vertical_pre_target_x = float(os.environ.get("FINAL_VERTICAL_PRE_TARGET_X", "-1.940"))
+        self.final_vertical_pre_forward_y = float(os.environ.get("FINAL_VERTICAL_PRE_FORWARD_Y", "0.42"))
+        self.final_vertical_pre_speed_cap = float(os.environ.get("FINAL_VERTICAL_PRE_SPEED_CAP", "0.92"))
         self.lower_corner_target_y = float(os.environ.get("LOWER_CORNER_TARGET_Y", "-1.136"))
         self.lower_corner_speed_cap = float(os.environ.get("LOWER_CORNER_SPEED_CAP", "0.42"))
         self.lower_corner_forward_x = float(os.environ.get("LOWER_CORNER_FORWARD_X", "0.58"))
+        self.lower_upcurve_target_x = float(os.environ.get("LOWER_UPCURVE_TARGET_X", "2.200"))
+        self.lower_upcurve_forward_y = float(os.environ.get("LOWER_UPCURVE_FORWARD_Y", "0.40"))
+        self.lower_upcurve_speed_cap = float(os.environ.get("LOWER_UPCURVE_SPEED_CAP", "0.66"))
         self.cow_entry_split_x = float(os.environ.get("COW_ENTRY_SPLIT_X", "0.05"))
         self.cow_entry_target_y = float(os.environ.get("COW_ENTRY_TARGET_Y", "4.500"))
         self.cow_clearance_target_y = float(os.environ.get("COW_CLEARANCE_TARGET_Y", "4.500"))
         self.cow_entry_x_offset = float(os.environ.get("COW_ENTRY_X_OFFSET", "0.45"))
         self.cow_clearance_x_offset = float(os.environ.get("COW_CLEARANCE_X_OFFSET", "0.45"))
+        self.cow_clearance_min_x = float(os.environ.get("COW_CLEARANCE_MIN_X", "0.42"))
+        self.cow_clearance_max_x = float(os.environ.get("COW_CLEARANCE_MAX_X", "0.56"))
+        self.cow_clearance_min_y = float(os.environ.get("COW_CLEARANCE_MIN_Y", "4.30"))
+        self.cow_clearance_max_y = float(os.environ.get("COW_CLEARANCE_MAX_Y", "4.55"))
+        self.cow_safe_cross_y = float(os.environ.get("COW_SAFE_CROSS_Y", "4.540"))
+        self.cow_safe_min_x = float(os.environ.get("COW_SAFE_MIN_X", "0.070"))
+        self.cow_approach_target_x = float(os.environ.get("COW_APPROACH_TARGET_X", "0.635"))
+        self.cow_approach_target_y = float(os.environ.get("COW_APPROACH_TARGET_Y", "4.500"))
+        self.cow_approach_speed_cap = float(os.environ.get("COW_APPROACH_SPEED_CAP", "0.35"))
+        self.cow_area_speed_cap = float(os.environ.get("COW_AREA_SPEED_CAP", "0.72"))
+        self.cow_exit_target_y = float(os.environ.get("COW_EXIT_TARGET_Y", "4.540"))
+        self.cow_late_exit_target_y = float(os.environ.get("COW_LATE_EXIT_TARGET_Y", str(self.cow_exit_target_y)))
+        self.cow_exit_speed_cap = float(os.environ.get("COW_EXIT_SPEED_CAP", "1.14"))
+        self.cow_late_exit_speed_cap = float(os.environ.get("COW_LATE_EXIT_SPEED_CAP", "0.92"))
+        self.cow_exit_x_offset = float(os.environ.get("COW_EXIT_X_OFFSET", "0.55"))
+        self.cow_late_exit_x_offset = float(os.environ.get("COW_LATE_EXIT_X_OFFSET", "0.60"))
+        self.cow_exit_max_y_drop = float(os.environ.get("COW_EXIT_MAX_Y_DROP", "99.0"))
+        self.upper_approach_speed_cap = float(os.environ.get("UPPER_APPROACH_SPEED_CAP", "0.62"))
+        upper_approach_target_y = os.environ.get("UPPER_APPROACH_TARGET_Y")
+        self.upper_approach_target_y = (
+            float(upper_approach_target_y)
+            if upper_approach_target_y is not None
+            else None
+        )
+        self.upper_approach_forward_x = float(os.environ.get("UPPER_APPROACH_FORWARD_X", "0.60"))
 
         # Scenario 3 keeps enough early speed for dynamic actors, then slows later.
         if self.core.scenario_num == 3:
@@ -253,11 +365,32 @@ class StudentDecision:
         target_point, _ = self.core.find_target_point(self.core.current_position)
         if self.core.scenario_num == 3:
             pos = self.core.current_position
+            self._maybe_request_upper_people_motion_early(pos)
+            pos = self.core.current_position
             if pos[1] >= self.scenario3_cruise_start_y:
                 self.core.max_speed = min(self.core.max_speed, self.scenario3_cruise_speed_limit)
             if pos[0] <= self.scenario3_final_slow_x:
                 self.core.max_speed = min(self.core.max_speed, self.scenario3_final_speed_limit)
             if (
+                self.cow_restart_ticks > 0
+                and -0.20 <= pos[0] <= 0.75
+                and 4.25 <= pos[1] <= 4.62
+            ):
+                target_point = np.array([
+                    max(self.cow_restart_min_x, pos[0] - self.cow_restart_forward_x),
+                    self.cow_restart_target_y,
+                ])
+                self.core.max_speed = min(self.core.max_speed, self.cow_restart_speed)
+                self.cow_restart_ticks -= 1
+            elif (
+                self.lower_overrides_enabled
+                and not self.lower_people_position_yield_done
+                and self.lower_people_pre_wait_min_x <= pos[0] < self.lower_people_guard_min_x
+                and -1.30 <= pos[1] <= -0.82
+            ):
+                target_point = np.array([0.48, self.lower_entry_target_y])
+                self.core.max_speed = min(self.core.max_speed, self.lower_people_pre_wait_speed)
+            elif (
                 self.lower_overrides_enabled
                 and
                 self.lower_people_pass_enabled
@@ -294,7 +427,7 @@ class StudentDecision:
             elif self.lower_overrides_enabled and 1.12 <= pos[0] <= 1.45 and -1.32 <= pos[1] <= -0.88:
                 target_point = np.array([self.lower_mid_target_x, self.lower_mid_target_y])
                 self.core.max_speed = min(self.core.max_speed, self.lower_mid_speed)
-            elif self.lower_overrides_enabled and 1.45 < pos[0] <= 2.08 and -1.20 <= pos[1] <= -0.86:
+            elif self.lower_overrides_enabled and 1.45 < pos[0] <= self.lower_exit_max_x and -1.20 <= pos[1] <= -0.86:
                 target_point = np.array([self.lower_exit_target_x, self.lower_exit_target_y])
                 self.core.max_speed = min(self.core.max_speed, self.lower_exit_speed)
             elif (
@@ -310,8 +443,8 @@ class StudentDecision:
                 target_point = np.array([pos[0] + self.lower_corner_forward_x, self.lower_corner_target_y])
                 self.core.max_speed = min(self.core.max_speed, self.lower_corner_speed_cap)
             elif 2.08 <= pos[0] <= 2.34 and -1.00 <= pos[1] < -0.35:
-                target_point = np.array([2.200, pos[1] + 0.40])
-                self.core.max_speed = min(self.core.max_speed, 0.66)
+                target_point = np.array([self.lower_upcurve_target_x, pos[1] + self.lower_upcurve_forward_y])
+                self.core.max_speed = min(self.core.max_speed, self.lower_upcurve_speed_cap)
             elif 2.02 <= pos[0] <= 2.26 and -0.35 <= pos[1] <= 0.08:
                 target_point = np.array([2.225, pos[1] + 0.42])
                 self.core.max_speed = min(self.core.max_speed, 0.64)
@@ -320,6 +453,9 @@ class StudentDecision:
             elif 2.14 <= pos[0] <= 2.22 and 3.66 <= pos[1] < 3.82:
                 target_point = np.array([2.235, pos[1] + 0.34])
                 self.core.max_speed = min(self.core.max_speed, 0.62)
+            elif 0.68 < pos[0] <= 1.05 and 4.30 <= pos[1] <= 4.58:
+                target_point = np.array([self.cow_approach_target_x, self.cow_approach_target_y])
+                self.core.max_speed = min(self.core.max_speed, self.cow_approach_speed_cap)
             elif -0.10 <= pos[0] <= 0.60 and 4.30 <= pos[1] <= 4.58:
                 cow_target_y = (
                     self.cow_entry_target_y
@@ -331,16 +467,47 @@ class StudentDecision:
                     if pos[0] >= self.cow_entry_split_x
                     else self.cow_clearance_x_offset
                 )
-                target_point = np.array([pos[0] - cow_x_offset, cow_target_y])
-                self.core.max_speed = min(self.core.max_speed, 0.72)
+                target_x = pos[0] - cow_x_offset
+                if pos[1] < self.cow_safe_cross_y:
+                    target_x = max(self.cow_safe_min_x, target_x)
+                    cow_target_y = max(cow_target_y, self.cow_safe_cross_y)
+                target_point = np.array([target_x, cow_target_y])
+                self.core.max_speed = min(self.core.max_speed, self.cow_area_speed_cap)
             elif -0.18 <= pos[0] <= 0.85 and 4.30 <= pos[1] <= 4.55:
-                target_point = np.array([pos[0] - 0.55, 4.420])
-                self.core.max_speed = min(self.core.max_speed, 1.14)
+                target_y = max(self.cow_exit_target_y, pos[1] - self.cow_exit_max_y_drop)
+                target_point = np.array([pos[0] - self.cow_exit_x_offset, target_y])
+                self.core.max_speed = min(self.core.max_speed, self.cow_exit_speed_cap)
             elif -0.48 <= pos[0] < -0.18 and 4.30 <= pos[1] <= 4.55:
-                target_point = np.array([pos[0] - 0.60, 4.420])
-                self.core.max_speed = min(self.core.max_speed, 0.92)
+                target_point = np.array([pos[0] - self.cow_late_exit_x_offset, self.cow_late_exit_target_y])
+                self.core.max_speed = min(self.core.max_speed, self.cow_late_exit_speed_cap)
+            elif -1.65 <= pos[0] < -0.48 and 4.20 <= pos[1] <= 4.58:
+                if self.upper_approach_target_y is not None:
+                    target_point = np.array([
+                        pos[0] - self.upper_approach_forward_x,
+                        self.upper_approach_target_y,
+                    ])
+                self.core.max_speed = min(self.core.max_speed, self.upper_approach_speed_cap)
             elif -2.10 <= pos[0] <= -1.65 and 3.45 <= pos[1] <= 4.35:
-                self.core.max_speed = min(self.core.max_speed, 1.08)
+                self.core.max_speed = min(self.core.max_speed, self.upper_curve_speed_cap)
+            elif (
+                self.upper_vertical_enabled
+                and -2.08 <= pos[0] <= -1.72
+                and self.upper_vertical_start_y <= pos[1] <= self.upper_vertical_end_y
+            ):
+                target_point = np.array([
+                    self.upper_vertical_target_x,
+                    pos[1] - self.upper_vertical_forward_y,
+                ])
+                self.core.max_speed = min(self.core.max_speed, self.upper_vertical_speed_cap)
+            elif -2.12 <= pos[0] <= -1.84 and self.final_vertical_pre_start_y <= pos[1] <= self.final_vertical_pre_end_y:
+                target_point = np.array([
+                    self.final_vertical_pre_target_x,
+                    pos[1] - self.final_vertical_pre_forward_y,
+                ])
+                self.core.max_speed = min(self.core.max_speed, self.final_vertical_pre_speed_cap)
+            elif -2.14 <= pos[0] <= -1.96 and self.final_vertical_start_y <= pos[1] <= self.final_vertical_end_y:
+                target_point = np.array([-1.930, pos[1] - 0.42])
+                self.core.max_speed = min(self.core.max_speed, self.final_vertical_speed_cap)
             elif 1.00 <= pos[0] <= 2.28 and 3.45 <= pos[1] <= 4.52:
                 self.core.max_speed = min(self.core.max_speed, 1.45)
             self.core.max_speed = min(self.core.max_speed, self.scenario3_strict_lane_speed_cap)
@@ -1354,6 +1521,32 @@ class StudentDecision:
 
         x = float(self.core.current_position[0])
         y = float(self.core.current_position[1])
+        cow_distance = self._nearest_cow_distance()
+
+        if not self.cow_clearance_yield_done and self.cow_clearance_motion_requested:
+            return (
+                "cow_clearance",
+                "Cow: pending clear yielding.",
+                0.0,
+            )
+
+        if (
+            self.upper_people_strict_clear_enabled
+            and not self.upper_people_position_yield_done
+            and self.upper_people_wait_pending
+        ):
+            return (
+                "upper_people",
+                "Pedestrian: upper pending clear yielding.",
+                0.0,
+            )
+
+        if not self.lower_people_position_yield_done and self.lower_people_wait_pending:
+            return (
+                "lower_people",
+                "Pedestrian: lower pending clear yielding.",
+                0.0,
+            )
 
         if (
             not self.cow_position_yield_done
@@ -1364,13 +1557,27 @@ class StudentDecision:
 
         if (
             not self.cow_clearance_yield_done
-            and 0.42 <= x <= 0.56
-            and 4.30 <= y <= 4.55
+            and self.cow_clearance_min_x <= x <= self.cow_clearance_max_x
+            and self.cow_clearance_min_y <= y <= self.cow_clearance_max_y
         ):
             return (
                 "cow_clearance",
                 "Cow: clearance guard yielding.",
                 self.cow_clearance_hold_seconds,
+            )
+
+        if (
+            self.cow_position_yield_done
+            and -0.12 <= x <= 0.35
+            and 4.30 <= y <= 4.56
+            and self.cow_safety_clear_distance > 0.0
+            and cow_distance is not None
+            and cow_distance < self.cow_safety_clear_distance
+        ):
+            return (
+                "cow_safety",
+                f"Cow: safety hold yielding, dist={cow_distance:.3f}.",
+                self.cow_safety_hold_seconds,
             )
 
         if (
@@ -1387,8 +1594,8 @@ class StudentDecision:
         if (
             not self.lower_people_position_yield_done
             and self.lower_people_hold_seconds > 0.0
-            and 0.30 <= x <= 0.58
-            and -1.24 <= y <= -0.82
+            and self.lower_people_guard_min_x <= x <= self.lower_people_guard_max_x
+            and self.lower_people_guard_min_y <= y <= self.lower_people_guard_max_y
         ):
             return (
                 "lower_people",
@@ -1401,6 +1608,361 @@ class StudentDecision:
     def should_position_yield(self):
         return self._position_yield_request() is not None
 
+    def _nearest_cow_distance(self):
+        self._cow_positions()
+        penalty_system = getattr(self.core, "penalty_system", None)
+        if penalty_system is None:
+            return None
+        cow_positions = getattr(penalty_system, "cow_positions", None)
+        if not cow_positions:
+            return None
+        cows = np.array(cow_positions, dtype=float)
+        if cows.size == 0:
+            return None
+        deltas = cows[:, :2] - np.array(self.core.current_position, dtype=float)
+        return float(np.min(np.linalg.norm(deltas, axis=1)))
+
+    def _cow_positions(self):
+        positions = []
+        if hasattr(self.core, "get_cow_positions_god_view"):
+            try:
+                positions = self.core.get_cow_positions_god_view()
+            except Exception:
+                positions = []
+
+        penalty_system = getattr(self.core, "penalty_system", None)
+        if positions and penalty_system is not None:
+            penalty_system.update_cow_position(positions)
+        elif penalty_system is not None:
+            positions = getattr(penalty_system, "cow_positions", []) or []
+
+        cow_positions = []
+        for cow_pos in positions:
+            if len(cow_pos) < 2:
+                continue
+            cow_positions.append(np.array([float(cow_pos[0]), float(cow_pos[1])], dtype=float))
+        return cow_positions
+
+    def _cow_clearance_clear(self):
+        cow_positions = self._cow_positions()
+        if not cow_positions:
+            return False
+
+        car_pos = np.array(self.core.current_position, dtype=float)
+        nearest_distance = min(float(np.linalg.norm(pos - car_pos)) for pos in cow_positions)
+        highest_y = max(float(pos[1]) for pos in cow_positions)
+        elapsed = (
+            time.time() - self.cow_clearance_motion_request_time
+            if self.cow_clearance_motion_request_time > 0.0
+            else 0.0
+        )
+        clear = (
+            highest_y <= self.cow_clearance_post_clear_y
+            and nearest_distance >= self.cow_clearance_post_hold_distance
+        )
+        if clear and not self.cow_clearance_clear_logged:
+            print(
+                "Cow: clearance confirmed. "
+                f"cow_y={highest_y:.3f}, distance={nearest_distance:.3f}, "
+                f"clear_y={self.cow_clearance_post_clear_y:.3f}, elapsed={elapsed:.2f}."
+            )
+            self.cow_clearance_clear_logged = True
+        return clear
+
+    def _hold_until_cow_clearance_clear(self):
+        if self.cow_clearance_post_hold_seconds <= 0.0:
+            return True
+        deadline = time.time() + self.cow_clearance_post_hold_seconds
+        while time.time() < deadline:
+            if self._cow_clearance_clear():
+                return True
+            self._stop_vehicle_once(brake=True)
+            time.sleep(0.05)
+        return self._cow_clearance_clear()
+
+    def _request_cow_clearance_motion(self):
+        if (
+            self.cow_clearance_motion_requested
+            and time.time() - self.cow_clearance_motion_request_time < 1.25
+        ):
+            return True
+
+        cow_actors = getattr(self.core, "cow_actors", {}) or {}
+        cow_actor = cow_actors.get(0)
+        if cow_actor is None:
+            return False
+
+        for _ in range(max(1, self.cow_pre_move_stop_ticks)):
+            self._stop_vehicle_once(brake=True)
+            time.sleep(0.05)
+        try:
+            ok = cow_actor.move_to(
+                location=[-0.159, self.cow_clearance_endpoint_y, 0.006],
+                speed=self.cow_clearance_endpoint_speed,
+                waitForConfirmation=self.cow_clearance_wait_for_confirmation,
+            )
+        except Exception as exc:
+            print(f"Cow: clearance motion request failed: {exc}")
+            return False
+
+        if ok:
+            repeated = self.cow_clearance_motion_requested
+            self.cow_clearance_motion_requested = True
+            if not repeated:
+                self.cow_clearance_motion_request_time = time.time()
+            if repeated:
+                print("Cow: re-requested clearance move_to endpoint.")
+            else:
+                print("Cow: requested clearance move_to endpoint.")
+        return bool(ok)
+
+    def _upper_people_positions(self):
+        positions = []
+        if hasattr(self.core, "get_people_positions_god_view"):
+            try:
+                positions = self.core.get_people_positions_god_view()
+            except Exception:
+                positions = []
+
+        penalty_system = getattr(self.core, "penalty_system", None)
+        if positions and penalty_system is not None:
+            penalty_system.update_people_position(positions)
+        elif penalty_system is not None:
+            positions = getattr(penalty_system, "people_positions", []) or []
+
+        upper_positions = []
+        for people_pos in positions:
+            if len(people_pos) < 2:
+                continue
+            x = float(people_pos[0])
+            y = float(people_pos[1])
+            if -2.30 <= x <= -1.35 and 3.05 <= y <= 3.35:
+                upper_positions.append(np.array([x, y], dtype=float))
+        return upper_positions
+
+    def _upper_people_clear(self):
+        upper_positions = self._upper_people_positions()
+        forced_clear = self._upper_people_forced_clear_elapsed()
+        if not upper_positions:
+            if forced_clear and not self.upper_people_clear_logged:
+                print(
+                    "Pedestrian: upper person clear by confirmed endpoint timeout. "
+                    f"elapsed={time.time() - self.upper_people_motion_request_time:.2f}."
+                )
+                self.upper_people_clear_logged = True
+            return forced_clear
+
+        car_pos = np.array(self.core.current_position, dtype=float)
+        nearest_distance = min(float(np.linalg.norm(pos - car_pos)) for pos in upper_positions)
+        farthest_x = max(float(pos[0]) for pos in upper_positions)
+        elapsed = (
+            time.time() - self.upper_people_motion_request_time
+            if self.upper_people_motion_request_time > 0.0
+            else self.upper_people_min_clear_seconds
+        )
+        clear = (
+            elapsed >= self.upper_people_min_clear_seconds
+            and nearest_distance >= self.upper_people_post_hold_distance
+            and farthest_x >= self.upper_people_clear_x
+        )
+        if clear and not self.upper_people_clear_logged:
+            print(
+                "Pedestrian: upper person clear. "
+                f"person_x={farthest_x:.3f}, distance={nearest_distance:.3f}, "
+                f"clear_x={self.upper_people_clear_x:.3f}, elapsed={elapsed:.2f}."
+            )
+            self.upper_people_clear_logged = True
+        return clear
+
+    def _upper_people_forced_clear_elapsed(self):
+        return (
+            self.upper_people_motion_requested
+            and self.upper_people_motion_request_time > 0.0
+            and time.time() - self.upper_people_motion_request_time >= self.upper_people_forced_clear_seconds
+        )
+
+    def _hold_until_upper_people_clear(self):
+        deadline = time.time() + self.upper_people_post_hold_seconds
+        clear_since = None
+        while time.time() < deadline:
+            if self._upper_people_clear():
+                if clear_since is None:
+                    clear_since = time.time()
+                if time.time() - clear_since >= self.upper_people_clear_settle_seconds:
+                    return True
+            else:
+                clear_since = None
+            self._stop_vehicle_once(brake=True)
+            time.sleep(0.05)
+        return self._upper_people_clear()
+
+    def _maybe_request_upper_people_motion_early(self, pos):
+        if (
+            not self.upper_people_pre_request_enabled
+            or not self.upper_people_strict_clear_enabled
+            or self.upper_people_position_yield_done
+            or self.upper_people_motion_requested
+            or pos is None
+        ):
+            return False
+
+        x = float(pos[0])
+        y = float(pos[1])
+        if not (
+            self.upper_people_pre_request_min_x <= x <= self.upper_people_pre_request_max_x
+            and self.upper_people_pre_request_min_y <= y <= self.upper_people_pre_request_max_y
+        ):
+            return False
+
+        ok = self._request_upper_people_motion(mark_pending=False, pre_stop=False)
+        if ok and not self.upper_people_pre_request_logged:
+            print(
+                "Pedestrian: pre-requested upper person motion. "
+                f"pos=({x:.3f}, {y:.3f})."
+            )
+            self.upper_people_pre_request_logged = True
+        return ok
+
+    def _request_upper_people_motion(self, mark_pending=True, pre_stop=True):
+        if self.upper_people_motion_requested:
+            if mark_pending:
+                self.upper_people_wait_pending = True
+            return True
+
+        people_actors = getattr(self.core, "people_actors", {}) or {}
+        upper_actor = people_actors.get(0)
+        if upper_actor is None:
+            return False
+
+        if pre_stop:
+            self._stop_vehicle_once(brake=True)
+            time.sleep(0.05)
+        try:
+            ok = upper_actor.move_to(
+                location=[self.upper_people_endpoint_x, self.upper_people_endpoint_y, 0.006],
+                speed=self.upper_people_speed,
+                waitForConfirmation=self.upper_people_wait_for_confirmation,
+            )
+        except Exception as exc:
+            print(f"Pedestrian: upper motion request failed: {exc}")
+            return False
+
+        if ok:
+            self.upper_people_motion_requested = True
+            self.upper_people_motion_request_time = time.time()
+            self.upper_people_wait_pending = bool(mark_pending)
+            print("Pedestrian: requested upper person move_to endpoint.")
+        return bool(ok)
+
+    def _lower_people_positions(self):
+        positions = []
+        if hasattr(self.core, "get_people_positions_god_view"):
+            try:
+                positions = self.core.get_people_positions_god_view()
+            except Exception:
+                positions = []
+
+        penalty_system = getattr(self.core, "penalty_system", None)
+        if positions and penalty_system is not None:
+            penalty_system.update_people_position(positions)
+        elif penalty_system is not None:
+            positions = getattr(penalty_system, "people_positions", []) or []
+
+        lower_positions = []
+        for people_pos in positions:
+            if len(people_pos) < 2:
+                continue
+            x = float(people_pos[0])
+            y = float(people_pos[1])
+            if 0.75 <= x <= 1.35 and -1.75 <= y <= -0.35:
+                lower_positions.append(np.array([x, y], dtype=float))
+        return lower_positions
+
+    def _lower_people_clear(self):
+        lower_positions = self._lower_people_positions()
+        forced_clear = self._lower_people_forced_clear_elapsed()
+        if not lower_positions:
+            if forced_clear and not self.lower_people_clear_logged:
+                print(
+                    "Pedestrian: lower person clear by confirmed endpoint timeout. "
+                    f"elapsed={time.time() - self.lower_people_motion_request_time:.2f}."
+                )
+                self.lower_people_clear_logged = True
+            return forced_clear
+
+        car_pos = np.array(self.core.current_position, dtype=float)
+        nearest_distance = min(float(np.linalg.norm(pos - car_pos)) for pos in lower_positions)
+        lowest_y = min(float(pos[1]) for pos in lower_positions)
+        elapsed = (
+            time.time() - self.lower_people_motion_request_time
+            if self.lower_people_motion_request_time > 0.0
+            else self.lower_people_min_clear_seconds
+        )
+        clear = (
+            elapsed >= self.lower_people_min_clear_seconds
+            and nearest_distance >= self.lower_people_post_hold_distance
+            and lowest_y <= self.lower_people_clear_y
+        )
+        if clear and not self.lower_people_clear_logged:
+            print(
+                "Pedestrian: lower person clear. "
+                f"person_y={lowest_y:.3f}, distance={nearest_distance:.3f}, "
+                f"clear_y={self.lower_people_clear_y:.3f}, elapsed={elapsed:.2f}."
+            )
+            self.lower_people_clear_logged = True
+        return clear
+
+    def _lower_people_forced_clear_elapsed(self):
+        return (
+            self.lower_people_motion_requested
+            and self.lower_people_motion_request_time > 0.0
+            and time.time() - self.lower_people_motion_request_time >= self.lower_people_forced_clear_seconds
+        )
+
+    def _hold_until_lower_people_clear(self):
+        deadline = time.time() + self.lower_people_post_hold_seconds
+        clear_since = None
+        while time.time() < deadline:
+            if self._lower_people_clear():
+                if clear_since is None:
+                    clear_since = time.time()
+                if time.time() - clear_since >= self.lower_people_clear_settle_seconds:
+                    return True
+            else:
+                clear_since = None
+            self._stop_vehicle_once(brake=True)
+            time.sleep(0.05)
+        return self._lower_people_clear()
+
+    def _request_lower_people_motion(self):
+        if self.lower_people_motion_requested:
+            self.lower_people_wait_pending = True
+            return True
+
+        people_actors = getattr(self.core, "people_actors", {}) or {}
+        lower_actor = people_actors.get(1)
+        if lower_actor is None:
+            return False
+
+        self._stop_vehicle_once(brake=True)
+        time.sleep(0.05)
+        try:
+            ok = lower_actor.move_to(
+                location=[1.1, self.lower_people_endpoint_y, 0.006],
+                speed=self.lower_people_speed,
+                waitForConfirmation=self.lower_people_wait_for_confirmation,
+            )
+        except Exception as exc:
+            print(f"Pedestrian: lower motion request failed: {exc}")
+            return False
+
+        if ok:
+            self.lower_people_motion_requested = True
+            self.lower_people_motion_request_time = time.time()
+            self.lower_people_wait_pending = True
+            print("Pedestrian: requested lower person move_to endpoint.")
+        return bool(ok)
+
     def _apply_position_yield(self):
         request = self._position_yield_request()
         if request is None:
@@ -1409,20 +1971,62 @@ class StudentDecision:
         guard_name, message, hold_seconds = request
         pos = self.core.current_position
         print(f"{message} pos=({pos[0]:.3f}, {pos[1]:.3f}).")
-        if hold_seconds > 0.0:
+        if guard_name == "upper_people" and self.upper_people_strict_clear_enabled:
+            self._request_upper_people_motion()
+        elif guard_name == "lower_people":
+            self._request_lower_people_motion()
+        elif guard_name == "cow_clearance":
+            self._request_cow_clearance_motion()
+        skip_hold = (
+            guard_name == "upper_people"
+            and self.upper_people_strict_clear_enabled
+            and self._upper_people_clear()
+        )
+        if hold_seconds > 0.0 and not skip_hold:
             self._hold_stop(hold_seconds)
+        upper_people_clear = True
+        lower_people_clear = True
+        cow_clearance_clear = True
+        if guard_name == "upper_people" and self.upper_people_strict_clear_enabled:
+            upper_people_clear = self._hold_until_upper_people_clear()
+        elif guard_name == "lower_people":
+            lower_people_clear = self._hold_until_lower_people_clear()
+        elif guard_name == "cow_clearance":
+            cow_clearance_clear = self._hold_until_cow_clearance_clear()
 
         if guard_name == "cow":
             self.cow_position_yield_done = True
+            if hold_seconds > 0.0:
+                self.cow_clearance_yield_done = True
+                self.cow_restart_ticks = max(self.cow_restart_ticks, self.cow_restart_max_ticks)
             self.last_cow_stop_time = time.time()
         elif guard_name == "cow_clearance":
+            if not cow_clearance_clear:
+                print("Cow: not clear yet; continuing to yield.")
+                self.last_cow_stop_time = time.time()
+                return True
             self.cow_clearance_yield_done = True
+            self.cow_position_yield_done = True
+            self.cow_restart_ticks = max(self.cow_restart_ticks, self.cow_restart_max_ticks)
+            self.last_cow_stop_time = time.time()
+        elif guard_name == "cow_safety":
+            self.cow_restart_ticks = max(self.cow_restart_ticks, self.cow_restart_max_ticks)
             self.last_cow_stop_time = time.time()
         elif guard_name == "upper_people":
+            if self.upper_people_strict_clear_enabled and not upper_people_clear:
+                print("Pedestrian: upper person not clear yet; continuing to yield.")
+                self.last_people_stop_time = time.time()
+                return True
             self.upper_people_position_yield_done = True
+            self.upper_people_wait_pending = False
             self.last_people_stop_time = time.time()
         elif guard_name == "lower_people":
+            if not lower_people_clear:
+                print("Pedestrian: lower person not clear yet; continuing to yield.")
+                self.last_people_stop_time = time.time()
+                return True
             self.lower_people_position_yield_done = True
+            self.lower_people_wait_pending = False
             self.last_people_stop_time = time.time()
 
         return True
@@ -1451,11 +2055,26 @@ class StudentDecision:
             print(f"Pedestrian: yielding, size={people_size:.2f}%.")
             if self.people_hold_seconds > 0.0:
                 if self.core.current_position[1] > 2.20 and self.core.current_position[0] < -0.80:
-                    self.upper_people_position_yield_done = True
-                    self._hold_stop(self.upper_people_hold_seconds)
+                    if self.upper_people_strict_clear_enabled:
+                        self._request_upper_people_motion()
+                        self._hold_stop(self.upper_people_hold_seconds)
+                        if self._hold_until_upper_people_clear():
+                            self.upper_people_position_yield_done = True
+                            self.upper_people_wait_pending = False
+                        else:
+                            print("Pedestrian: upper person not clear yet after camera yield.")
+                    else:
+                        self._hold_stop(self.upper_people_hold_seconds)
+                        self.upper_people_position_yield_done = True
+                        self.upper_people_wait_pending = False
                 else:
-                    self.lower_people_position_yield_done = True
+                    self._request_lower_people_motion()
                     self._hold_stop(self.lower_people_hold_seconds)
+                    if self._hold_until_lower_people_clear():
+                        self.lower_people_position_yield_done = True
+                        self.lower_people_wait_pending = False
+                    else:
+                        print("Pedestrian: lower person not clear yet after camera yield.")
             else:
                 self._drive()
             self.last_people_stop_time = time.time()
